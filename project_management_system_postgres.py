@@ -10,10 +10,10 @@ DB_HOST = "localhost"
 
 def connect_db():
     return psycopg2.connect(
-        dbname=project_management,
-        user=postgres,
-        password=your_password,
-        host=localhost
+        dbname="project_management",
+        user="postgres",
+        password="your_password",
+        host="localhost"
     )
 
 def save_project(data):
