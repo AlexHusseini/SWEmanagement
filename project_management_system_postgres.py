@@ -4,7 +4,7 @@ from tkinter import messagebox, ttk
 import psycopg2
 
 DB_NAME = "project_management"
-DB_USER = "your_username"
+DB_USER = "postgres"
 DB_PASSWORD = "your_password"
 DB_HOST = "localhost"
 
@@ -12,7 +12,7 @@ def connect_db():
     return psycopg2.connect(
         dbname=project_management,
         user=postgres,
-        password=postgres,
+        password=your_password,
         host=localhost
     )
 
