@@ -11,7 +11,9 @@ How to Run:
    - A database named 'project_management'
    - A table named 'projects' with correct structure.
 
-3. Run the application:
+3. Update your PostgreSQL credentials in the script.
+
+4. Run the application:
    python project_management_system_postgres.py
 
 Features:
