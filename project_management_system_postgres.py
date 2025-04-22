@@ -1,4 +1,3 @@
-
 import tkinter as tk
 from tkinter import messagebox, ttk
 import psycopg2
@@ -20,7 +19,7 @@ def save_project(data):
     conn = connect_db()
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO projects (project_name, owner, team_members, functional_requirements, nonfunctional_requirements, effort_hours, risks)
+        INSERT INTO projects (name, owner, team_members, functional_requirements, nonfunctional_requirements, effort_hours, risks)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
     """, data)
     conn.commit()
@@ -98,7 +97,7 @@ class ProjectManagementApp:
         try:
             conn = connect_db()
             cur = conn.cursor()
-            cur.execute("SELECT project_name, owner, team_members, functional_requirements, nonfunctional_requirements, effort_hours, risks FROM projects")
+            cur.execute("SELECT name, owner, team_members, functional_requirements, nonfunctional_requirements, effort_hours, risks FROM projects")
             rows = cur.fetchall()
             for row in rows:
                 tree.insert('', tk.END, values=row)
