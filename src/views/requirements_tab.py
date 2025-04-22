@@ -54,7 +54,7 @@ class RequirementsTab:
         
     def load_projects(self):
         self.db.connect()
-        projects = self.db.fetch_all("SELECT id, project_name FROM projects ORDER BY project_name")
+        projects = self.db.fetch_all("SELECT id, name FROM projects ORDER BY name")
         self.db.disconnect()
         
         self.projects = {p[1]: p[0] for p in projects}
@@ -78,23 +78,31 @@ class RequirementsTab:
         tree_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # Create treeview
-        self.tree = ttk.Treeview(tree_frame, columns=("name", "type", "status"), show="headings")
+        self.tree = ttk.Treeview(tree_frame, columns=("name", "type", "status", "description"), show="headings")
         self.tree.heading("name", text="Requirement Name")
         self.tree.heading("type", text="Type")
         self.tree.heading("status", text="Status")
+        self.tree.heading("description", text="Description")
         
         # Set column widths
-        self.tree.column("name", width=300)
-        self.tree.column("type", width=150)
-        self.tree.column("status", width=150)
+        self.tree.column("name", width=200)
+        self.tree.column("type", width=100)
+        self.tree.column("status", width=100)
+        self.tree.column("description", width=300)
         
-        # Add scrollbar
-        scrollbar = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scrollbar.set)
+        # Add scrollbars
+        yscrollbar = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.tree.yview)
+        xscrollbar = ttk.Scrollbar(tree_frame, orient=tk.HORIZONTAL, command=self.tree.xview)
+        self.tree.configure(yscrollcommand=yscrollbar.set, xscrollcommand=xscrollbar.set)
         
         # Pack widgets
-        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        yscrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        xscrollbar.grid(row=1, column=0, sticky=(tk.W, tk.E))
+        
+        # Configure grid weights
+        tree_frame.grid_columnconfigure(0, weight=1)
+        tree_frame.grid_rowconfigure(0, weight=1)
         
         # Bind selection event
         self.tree.bind("<<TreeviewSelect>>", self.on_requirement_selected)
@@ -119,14 +127,14 @@ class RequirementsTab:
         # Connect to database and fetch requirements
         self.db.connect()
         requirements = self.db.fetch_all(
-            "SELECT id, requirement_name, requirement_type, status FROM requirements WHERE project_id = %s ORDER BY requirement_name",
+            "SELECT id, requirement_name, requirement_type, status, description FROM requirements WHERE project_id = %s ORDER BY requirement_name",
             (self.current_project_id,)
         )
         self.db.disconnect()
         
         # Add requirements to treeview
         for req in requirements:
-            self.tree.insert("", tk.END, values=(req[1], req[2], req[3]), tags=(req[0],))
+            self.tree.insert("", tk.END, values=(req[1], req[2], req[3], req[4]), tags=(req[0],))
             
     def show_add_requirement_dialog(self):
         if not self.current_project_id:
@@ -135,27 +143,35 @@ class RequirementsTab:
             
         dialog = tk.Toplevel(self.parent)
         dialog.title("Add Requirement")
-        dialog.geometry("500x400")
+        dialog.geometry("600x500")
         dialog.grab_set()  # Make dialog modal
         
-        # Create form
-        ttk.Label(dialog, text="Requirement Name:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
-        name_entry = ttk.Entry(dialog, width=40)
-        name_entry.grid(row=0, column=1, padx=5, pady=5)
+        # Create main frame
+        main_frame = ttk.Frame(dialog, padding="10")
+        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
-        ttk.Label(dialog, text="Type:").grid(row=1, column=0, padx=5, pady=5, sticky=tk.W)
-        type_combo = ttk.Combobox(dialog, width=20, values=["functional", "non-functional"], state="readonly")
-        type_combo.grid(row=1, column=1, padx=5, pady=5, sticky=tk.W)
+        # Create form
+        ttk.Label(main_frame, text="Requirement Name:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
+        name_entry = ttk.Entry(main_frame, width=50)
+        name_entry.grid(row=0, column=1, padx=5, pady=5, sticky=(tk.W, tk.E))
+        
+        ttk.Label(main_frame, text="Type:").grid(row=1, column=0, padx=5, pady=5, sticky=tk.W)
+        type_combo = ttk.Combobox(main_frame, width=47, values=["functional", "non-functional"], state="readonly")
+        type_combo.grid(row=1, column=1, padx=5, pady=5, sticky=(tk.W, tk.E))
         type_combo.current(0)
         
-        ttk.Label(dialog, text="Status:").grid(row=2, column=0, padx=5, pady=5, sticky=tk.W)
-        status_combo = ttk.Combobox(dialog, width=20, values=["pending", "in progress", "completed", "rejected"], state="readonly")
-        status_combo.grid(row=2, column=1, padx=5, pady=5, sticky=tk.W)
+        ttk.Label(main_frame, text="Status:").grid(row=2, column=0, padx=5, pady=5, sticky=tk.W)
+        status_combo = ttk.Combobox(main_frame, width=47, values=["pending", "in progress", "completed", "rejected"], state="readonly")
+        status_combo.grid(row=2, column=1, padx=5, pady=5, sticky=(tk.W, tk.E))
         status_combo.current(0)
         
-        ttk.Label(dialog, text="Description:").grid(row=3, column=0, padx=5, pady=5, sticky=tk.W)
-        desc_text = tk.Text(dialog, width=40, height=10)
-        desc_text.grid(row=3, column=1, padx=5, pady=5)
+        ttk.Label(main_frame, text="Description:").grid(row=3, column=0, padx=5, pady=5, sticky=tk.W)
+        desc_text = tk.Text(main_frame, width=50, height=10)
+        desc_text.grid(row=3, column=1, padx=5, pady=5, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Configure grid weights
+        main_frame.grid_columnconfigure(1, weight=1)
+        main_frame.grid_rowconfigure(3, weight=1)
         
         def save_requirement():
             name = name_entry.get()
@@ -177,7 +193,12 @@ class RequirementsTab:
                 dialog.destroy()
             self.db.disconnect()
             
-        ttk.Button(dialog, text="Save", command=save_requirement).grid(row=4, column=1, pady=10)
+        # Create button frame
+        button_frame = ttk.Frame(dialog, padding="10")
+        button_frame.grid(row=1, column=0, sticky=(tk.E, tk.W))
+        
+        ttk.Button(button_frame, text="Save", command=save_requirement).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(side=tk.RIGHT, padx=5)
         
     def show_edit_requirement_dialog(self):
         selected = self.tree.selection()
@@ -197,29 +218,37 @@ class RequirementsTab:
         
         dialog = tk.Toplevel(self.parent)
         dialog.title("Edit Requirement")
-        dialog.geometry("500x400")
+        dialog.geometry("600x500")
         dialog.grab_set()  # Make dialog modal
         
+        # Create main frame
+        main_frame = ttk.Frame(dialog, padding="10")
+        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
         # Create form
-        ttk.Label(dialog, text="Requirement Name:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
-        name_entry = ttk.Entry(dialog, width=40)
+        ttk.Label(main_frame, text="Requirement Name:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
+        name_entry = ttk.Entry(main_frame, width=50)
         name_entry.insert(0, requirement[0])
-        name_entry.grid(row=0, column=1, padx=5, pady=5)
+        name_entry.grid(row=0, column=1, padx=5, pady=5, sticky=(tk.W, tk.E))
         
-        ttk.Label(dialog, text="Type:").grid(row=1, column=0, padx=5, pady=5, sticky=tk.W)
-        type_combo = ttk.Combobox(dialog, width=20, values=["functional", "non-functional"], state="readonly")
+        ttk.Label(main_frame, text="Type:").grid(row=1, column=0, padx=5, pady=5, sticky=tk.W)
+        type_combo = ttk.Combobox(main_frame, width=47, values=["functional", "non-functional"], state="readonly")
         type_combo.set(requirement[2])
-        type_combo.grid(row=1, column=1, padx=5, pady=5, sticky=tk.W)
+        type_combo.grid(row=1, column=1, padx=5, pady=5, sticky=(tk.W, tk.E))
         
-        ttk.Label(dialog, text="Status:").grid(row=2, column=0, padx=5, pady=5, sticky=tk.W)
-        status_combo = ttk.Combobox(dialog, width=20, values=["pending", "in progress", "completed", "rejected"], state="readonly")
+        ttk.Label(main_frame, text="Status:").grid(row=2, column=0, padx=5, pady=5, sticky=tk.W)
+        status_combo = ttk.Combobox(main_frame, width=47, values=["pending", "in progress", "completed", "rejected"], state="readonly")
         status_combo.set(requirement[3])
-        status_combo.grid(row=2, column=1, padx=5, pady=5, sticky=tk.W)
+        status_combo.grid(row=2, column=1, padx=5, pady=5, sticky=(tk.W, tk.E))
         
-        ttk.Label(dialog, text="Description:").grid(row=3, column=0, padx=5, pady=5, sticky=tk.W)
-        desc_text = tk.Text(dialog, width=40, height=10)
+        ttk.Label(main_frame, text="Description:").grid(row=3, column=0, padx=5, pady=5, sticky=tk.W)
+        desc_text = tk.Text(main_frame, width=50, height=10)
         desc_text.insert("1.0", requirement[1] or "")
-        desc_text.grid(row=3, column=1, padx=5, pady=5)
+        desc_text.grid(row=3, column=1, padx=5, pady=5, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Configure grid weights
+        main_frame.grid_columnconfigure(1, weight=1)
+        main_frame.grid_rowconfigure(3, weight=1)
         
         def save_changes():
             name = name_entry.get()
@@ -242,7 +271,12 @@ class RequirementsTab:
                 dialog.destroy()
             self.db.disconnect()
             
-        ttk.Button(dialog, text="Save Changes", command=save_changes).grid(row=4, column=1, pady=10)
+        # Create button frame
+        button_frame = ttk.Frame(dialog, padding="10")
+        button_frame.grid(row=1, column=0, sticky=(tk.E, tk.W))
+        
+        ttk.Button(button_frame, text="Save Changes", command=save_changes).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(side=tk.RIGHT, padx=5)
         
     def delete_requirement(self):
         selected = self.tree.selection()
