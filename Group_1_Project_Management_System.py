@@ -5,12 +5,302 @@ import psycopg2
 from datetime import datetime
 import csv
 import os
+import hashlib
+import re
 
 # PostgreSQL connection configuration
 DB_NAME = "project_management"
 DB_USER = "your_username"
 DB_PASSWORD = "your_password"
 DB_HOST = "localhost"
+
+# === USER AUTHENTICATION ===
+
+class LoginWindow:
+    def __init__(self, root, on_login_success, skip_allowed=True):
+        self.root = root
+        self.on_login_success = on_login_success
+        self.skip_allowed = skip_allowed
+        
+        # Set up the login window
+        self.root.title("Project Management System - Login")
+        self.root.geometry("450x550")  # Reduced height from 600 to 550
+        self.root.resizable(False, False)
+        
+        # Configure style
+        style = ttk.Style()
+        style.configure("TButton", padding=6, font=('Arial', 10))
+        style.configure("TLabel", font=('Arial', 10))
+        style.configure("Header.TLabel", font=('Arial', 12, 'bold'))
+        
+        # Create main frame
+        main_frame = ttk.Frame(self.root, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # App title
+        title_label = ttk.Label(main_frame, text="Project Management System", font=("Arial", 16, "bold"))
+        title_label.pack(pady=(5, 0))  # Reduced top padding
+        
+        subtitle_label = ttk.Label(main_frame, text="User Authentication", font=("Arial", 12))
+        subtitle_label.pack(pady=(0, 10))  # Reduced bottom padding
+        
+        # Create tab control for login/register tabs
+        tab_control = ttk.Notebook(main_frame)
+        tab_control.pack(fill=tk.BOTH, expand=True)
+        
+        # Login tab
+        login_tab = ttk.Frame(tab_control, padding=10)
+        tab_control.add(login_tab, text="Login")
+        
+        # Register tab
+        register_tab = ttk.Frame(tab_control, padding=10)
+        tab_control.add(register_tab, text="Register")
+        
+        # Setup login tab
+        self.setup_login_tab(login_tab)
+        
+        # Setup register tab
+        self.setup_register_tab(register_tab)
+        
+        # Status label at the bottom of main frame
+        self.status_var = tk.StringVar()
+        status_label = ttk.Label(main_frame, textvariable=self.status_var, foreground="red")
+        status_label.pack(pady=5)  # Reduced padding
+        
+        # Ensure users table exists
+        self.create_users_table()
+    
+    def setup_login_tab(self, parent):
+        """Set up the login tab"""
+        # Create form frame
+        form_frame = ttk.Frame(parent)
+        form_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Username
+        ttk.Label(form_frame, text="Username:", style="Header.TLabel").pack(anchor="w", pady=(5, 3))
+        self.username_entry = ttk.Entry(form_frame, width=40)
+        self.username_entry.pack(fill=tk.X, pady=(0, 10))
+        
+        # Password
+        ttk.Label(form_frame, text="Password:", style="Header.TLabel").pack(anchor="w", pady=(5, 3))
+        self.password_entry = ttk.Entry(form_frame, width=40, show="*")
+        self.password_entry.pack(fill=tk.X, pady=(0, 15))
+        
+        # Button frame
+        button_frame = ttk.Frame(form_frame)
+        button_frame.pack(fill=tk.X, pady=5)
+        
+        # Login button
+        login_button = ttk.Button(button_frame, text="Login", command=self.login, width=15)
+        login_button.pack(side=tk.LEFT, padx=5)
+        
+        # Skip login button
+        if self.skip_allowed:
+            skip_button = ttk.Button(button_frame, text="Skip Login", command=self.skip_login, width=15)
+            skip_button.pack(side=tk.LEFT, padx=5)
+    
+    def setup_register_tab(self, parent):
+        """Set up the register tab"""
+        # Use a canvas with scrollbar to ensure everything fits
+        canvas = tk.Canvas(parent)
+        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        scroll_frame = ttk.Frame(canvas)
+
+        scroll_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Instructions
+        instruction_label = ttk.Label(scroll_frame, text="Create a new account", style="Header.TLabel")
+        instruction_label.pack(anchor="w", pady=(5, 10))
+        
+        # Create form with compact spacing
+        form_frame = ttk.Frame(scroll_frame)
+        form_frame.pack(fill=tk.BOTH)
+        
+        # Username
+        ttk.Label(form_frame, text="Username:", style="Header.TLabel").pack(anchor="w", pady=(0, 3))
+        self.reg_username_entry = ttk.Entry(form_frame, width=40)
+        self.reg_username_entry.pack(fill=tk.X, pady=(0, 8))
+        
+        # Password
+        ttk.Label(form_frame, text="Password:", style="Header.TLabel").pack(anchor="w", pady=(0, 3))
+        self.reg_password_entry = ttk.Entry(form_frame, width=40, show="*")
+        self.reg_password_entry.pack(fill=tk.X, pady=(0, 3))
+        
+        # Password hint
+        password_hint = ttk.Label(form_frame, text="Password must be at least 6 characters", foreground="gray", font=("Arial", 9, "italic"))
+        password_hint.pack(anchor="w", pady=(0, 8))
+        
+        # Confirm Password
+        ttk.Label(form_frame, text="Confirm Password:", style="Header.TLabel").pack(anchor="w", pady=(0, 3))
+        self.reg_confirm_entry = ttk.Entry(form_frame, width=40, show="*")
+        self.reg_confirm_entry.pack(fill=tk.X, pady=(0, 8))
+        
+        # Role
+        ttk.Label(form_frame, text="Role:", style="Header.TLabel").pack(anchor="w", pady=(0, 3))
+        self.reg_role_combo = ttk.Combobox(form_frame, width=38, values=["Project Manager", "Developer", "Tester"], state="readonly")
+        self.reg_role_combo.pack(fill=tk.X, pady=(0, 15))
+        self.reg_role_combo.current(0)
+        
+        # Register button
+        register_button = ttk.Button(form_frame, text="Create Account", command=self.register, width=20)
+        register_button.pack(pady=5)
+    
+    def create_users_table(self):
+        """Create users table if it doesn't exist"""
+        try:
+            conn = connect_db()
+            cur = conn.cursor()
+            
+            # Check if users table exists
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'users'
+                )
+            """)
+            table_exists = cur.fetchone()[0]
+            
+            if not table_exists:
+                # Create users table
+                cur.execute("""
+                    CREATE TABLE users (
+                        id SERIAL PRIMARY KEY,
+                        username VARCHAR(50) UNIQUE NOT NULL,
+                        password_hash VARCHAR(128) NOT NULL,
+                        role VARCHAR(20) NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                # Create default admin user
+                hashed_password = hashlib.sha256("admin".encode()).hexdigest()
+                cur.execute("""
+                    INSERT INTO users (username, password_hash, role)
+                    VALUES ('admin', %s, 'Project Manager')
+                """, (hashed_password,))
+                
+                conn.commit()
+                self.status_var.set("Default user created: admin/admin")
+            
+            cur.close()
+            conn.close()
+        except Exception as e:
+            self.status_var.set(f"Database error: {e}")
+    
+    def validate_password(self, password):
+        """Validate password strength"""
+        if len(password) < 6:
+            return False, "Password must be at least 6 characters"
+        return True, ""
+    
+    def register(self):
+        """Register a new user"""
+        username = self.reg_username_entry.get().strip()
+        password = self.reg_password_entry.get()
+        confirm = self.reg_confirm_entry.get()
+        role = self.reg_role_combo.get()
+        
+        # Validate inputs
+        if not username or not password or not confirm:
+            self.status_var.set("All fields are required")
+            return
+        
+        if password != confirm:
+            self.status_var.set("Passwords do not match")
+            return
+        
+        valid, message = self.validate_password(password)
+        if not valid:
+            self.status_var.set(message)
+            return
+        
+        try:
+            # Hash password
+            hashed_password = hashlib.sha256(password.encode()).hexdigest()
+            
+            # Insert new user
+            conn = connect_db()
+            cur = conn.cursor()
+            
+            # Check if username exists
+            cur.execute("SELECT COUNT(*) FROM users WHERE username = %s", (username,))
+            if cur.fetchone()[0] > 0:
+                self.status_var.set("Username already exists")
+                cur.close()
+                conn.close()
+                return
+            
+            # Insert user
+            cur.execute("""
+                INSERT INTO users (username, password_hash, role)
+                VALUES (%s, %s, %s)
+            """, (username, hashed_password, role))
+            
+            conn.commit()
+            cur.close()
+            conn.close()
+            
+            # Clear registration fields
+            self.reg_username_entry.delete(0, tk.END)
+            self.reg_password_entry.delete(0, tk.END)
+            self.reg_confirm_entry.delete(0, tk.END)
+            
+            self.status_var.set("Registration successful! You can now login.")
+            
+        except Exception as e:
+            self.status_var.set(f"Registration failed: {e}")
+    
+    def login(self):
+        """Authenticate user login"""
+        username = self.username_entry.get().strip()
+        password = self.password_entry.get()
+        
+        if not username or not password:
+            self.status_var.set("Username and password are required")
+            return
+        
+        try:
+            # Hash password for comparison
+            hashed_password = hashlib.sha256(password.encode()).hexdigest()
+            
+            # Check credentials
+            conn = connect_db()
+            cur = conn.cursor()
+            
+            cur.execute("""
+                SELECT id, role FROM users 
+                WHERE username = %s AND password_hash = %s
+            """, (username, hashed_password))
+            
+            result = cur.fetchone()
+            cur.close()
+            conn.close()
+            
+            if result:
+                user_id, role = result
+                # Login successful
+                self.root.withdraw()  # Hide login window
+                self.on_login_success(user_id, username, role)
+            else:
+                self.status_var.set("Invalid username or password")
+                
+        except Exception as e:
+            self.status_var.set(f"Login failed: {e}")
+    
+    def skip_login(self):
+        """Skip login for backward compatibility"""
+        self.root.withdraw()  # Hide login window
+        self.on_login_success(None, "Guest", "Guest")
+
 
 # Function to establish connection to PostgreSQL database
 def connect_db():
@@ -1056,8 +1346,17 @@ class ExportsTab:
 class ProjectManagementApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Project Management System")
-
+        
+        # Get the current user information
+        global current_user
+        self.current_user = current_user if 'current_user' in globals() else {"id": None, "username": "Guest", "role": "Guest"}
+        
+        # Set window title with user info if not a guest
+        if self.current_user["role"] != "Guest":
+            self.root.title(f"Project Management System - {self.current_user['username']} ({self.current_user['role']})")
+        else:
+            self.root.title("Project Management System")
+        
         # Create a notebook widget to hold multiple tabs
         self.notebook = ttk.Notebook(root)
         self.notebook.pack(fill="both", expand=True)
@@ -1088,7 +1387,120 @@ class ProjectManagementApp:
         # Exports Tab
         self.exports_tab = ExportsTab(self.notebook)
         self.notebook.add(self.exports_tab.frame, text="Exports")
-
+        
+        # User Profile Tab - only show if logged in
+        if self.current_user["id"] is not None:
+            self.user_profile_tab = ttk.Frame(self.notebook)
+            self.notebook.add(self.user_profile_tab, text="My Profile")
+            self.setup_user_profile_tab()
+    
+    def setup_user_profile_tab(self):
+        """Set up the user profile tab"""
+        frame = ttk.Frame(self.user_profile_tab, padding="20")
+        frame.pack(fill=tk.BOTH, expand=True)
+        
+        # User info section
+        info_frame = ttk.LabelFrame(frame, text="User Information", padding="10")
+        info_frame.pack(fill=tk.X, pady=10)
+        
+        ttk.Label(info_frame, text="Username:", font=("Arial", 11, "bold")).grid(row=0, column=0, sticky=tk.W, pady=5)
+        ttk.Label(info_frame, text=self.current_user["username"]).grid(row=0, column=1, sticky=tk.W, pady=5)
+        
+        ttk.Label(info_frame, text="Role:", font=("Arial", 11, "bold")).grid(row=1, column=0, sticky=tk.W, pady=5)
+        ttk.Label(info_frame, text=self.current_user["role"]).grid(row=1, column=1, sticky=tk.W, pady=5)
+        
+        # Change password section
+        if self.current_user["id"] is not None:
+            pwd_frame = ttk.LabelFrame(frame, text="Change Password", padding="10")
+            pwd_frame.pack(fill=tk.X, pady=10)
+            
+            ttk.Label(pwd_frame, text="Current Password:").grid(row=0, column=0, sticky=tk.W, pady=5)
+            current_pwd_entry = ttk.Entry(pwd_frame, width=30, show="*")
+            current_pwd_entry.grid(row=0, column=1, padx=5, pady=5)
+            
+            ttk.Label(pwd_frame, text="New Password:").grid(row=1, column=0, sticky=tk.W, pady=5)
+            new_pwd_entry = ttk.Entry(pwd_frame, width=30, show="*")
+            new_pwd_entry.grid(row=1, column=1, padx=5, pady=5)
+            
+            ttk.Label(pwd_frame, text="Confirm Password:").grid(row=2, column=0, sticky=tk.W, pady=5)
+            confirm_pwd_entry = ttk.Entry(pwd_frame, width=30, show="*")
+            confirm_pwd_entry.grid(row=2, column=1, padx=5, pady=5)
+            
+            # Status label
+            status_var = tk.StringVar()
+            status_label = ttk.Label(pwd_frame, textvariable=status_var, foreground="red")
+            status_label.grid(row=3, column=0, columnspan=2, pady=5)
+            
+            def change_password():
+                current = current_pwd_entry.get()
+                new = new_pwd_entry.get()
+                confirm = confirm_pwd_entry.get()
+                
+                if not current or not new or not confirm:
+                    status_var.set("All fields are required")
+                    return
+                    
+                if new != confirm:
+                    status_var.set("New passwords do not match")
+                    return
+                    
+                if len(new) < 6:
+                    status_var.set("Password must be at least 6 characters")
+                    return
+                
+                try:
+                    # Verify current password
+                    current_hash = hashlib.sha256(current.encode()).hexdigest()
+                    new_hash = hashlib.sha256(new.encode()).hexdigest()
+                    
+                    conn = connect_db()
+                    cur = conn.cursor()
+                    
+                    cur.execute("""
+                        SELECT COUNT(*) FROM users 
+                        WHERE id = %s AND password_hash = %s
+                    """, (self.current_user["id"], current_hash))
+                    
+                    if cur.fetchone()[0] == 0:
+                        status_var.set("Current password is incorrect")
+                        cur.close()
+                        conn.close()
+                        return
+                    
+                    # Update password
+                    cur.execute("""
+                        UPDATE users 
+                        SET password_hash = %s
+                        WHERE id = %s
+                    """, (new_hash, self.current_user["id"]))
+                    
+                    conn.commit()
+                    cur.close()
+                    conn.close()
+                    
+                    # Clear entries
+                    current_pwd_entry.delete(0, tk.END)
+                    new_pwd_entry.delete(0, tk.END)
+                    confirm_pwd_entry.delete(0, tk.END)
+                    
+                    status_var.set("Password changed successfully")
+                except Exception as e:
+                    status_var.set(f"Error: {e}")
+            
+            ttk.Button(pwd_frame, text="Change Password", command=change_password).grid(row=4, column=0, columnspan=2, pady=10)
+        
+        # Logout button
+        ttk.Button(frame, text="Logout", command=self.logout).pack(pady=20)
+    
+    def logout(self):
+        """Log out the current user"""
+        if messagebox.askyesno("Logout", "Are you sure you want to log out?"):
+            self.root.destroy()
+            
+            # Show login window again
+            login_root = tk.Tk()
+            login_window = LoginWindow(login_root, lambda user_id, username, role: on_login_success(user_id, username, role))
+            login_root.mainloop()
 
     def setup_projects_tab(self):
         # UI for Projects tab 
@@ -1274,5 +1686,32 @@ class ProjectManagementApp:
 # Entry Point 
 if __name__ == "__main__":
     root = tk.Tk() # Create main window
-    app = ProjectManagementApp(root) # Launch app
+    
+    def on_login_success(user_id, username, role):
+        # Create new window for the main application
+        app_window = tk.Toplevel()
+        app_window.title(f"Project Management System - Logged in as {username} ({role})")
+        app_window.geometry("1024x768")
+        app_window.protocol("WM_DELETE_WINDOW", root.destroy)  # Close the whole app when the main window is closed
+        
+        # Store user info
+        global current_user
+        current_user = {
+            "id": user_id,
+            "username": username,
+            "role": role
+        }
+        
+        # Launch app
+        app = ProjectManagementApp(app_window)
+        
+    # Show login window
+    login_window = LoginWindow(root, on_login_success)
+    
+    # Use this flag for demonstration/testing to skip the login screen
+    # Set SKIP_LOGIN to True to automatically skip the login
+    SKIP_LOGIN = False
+    if SKIP_LOGIN:
+        login_window.skip_login()
+    
     root.mainloop() # Run main loop
