@@ -21,3 +21,4 @@ Features:
 - Save data into a PostgreSQL database
 
 Authors: Group 1
+https://docs.google.com/document/d/1eB-rOR43J3jxL-RsJ3McKKb02yQAsRsL/edit?usp=sharing&ouid=110038738534494505738&rtpof=true&sd=true
