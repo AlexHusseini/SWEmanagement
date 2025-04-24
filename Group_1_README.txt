@@ -1,4 +1,3 @@
-
 Project Management System (Tkinter + PostgreSQL)
 -------------------------------------------------
 This is a Project Management System using a PostgreSQL database for storage.
