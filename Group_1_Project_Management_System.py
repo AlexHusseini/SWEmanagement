@@ -1,8 +1,10 @@
 # === IMPORTS AND DATABASE CONFIGURATION ===
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox, ttk, filedialog
 import psycopg2
 from datetime import datetime
+import csv
+import os
 
 # PostgreSQL connection configuration
 DB_NAME = "project_management"
@@ -818,6 +820,237 @@ class EffortTrackingTab:
         messagebox.showinfo("Cleared", "All entries have been deleted.")
 
 
+# === EXPORTS TAB ===
+
+class ExportsTab:
+    def __init__(self, parent):
+        self.parent = parent
+        self.frame = ttk.Frame(self.parent)
+        self.setup_ui()
+    
+    def setup_ui(self):
+        # Title label
+        title_label = ttk.Label(self.frame, text="Export Project Data", font=("Arial", 14, "bold"))
+        title_label.grid(row=0, column=0, columnspan=2, padx=20, pady=20)
+        
+        # Description label
+        desc_label = ttk.Label(self.frame, text="Select data to export and choose CSV format for export.")
+        desc_label.grid(row=1, column=0, columnspan=2, padx=20, pady=5, sticky="w")
+        
+        # Export Projects section
+        projects_frame = ttk.LabelFrame(self.frame, text="Projects")
+        projects_frame.grid(row=2, column=0, padx=20, pady=10, sticky="nsew")
+        
+        ttk.Label(projects_frame, text="Export all project data to CSV file").pack(padx=10, pady=5, anchor="w")
+        ttk.Button(projects_frame, text="Export Projects", command=self.export_projects_csv).pack(padx=10, pady=10)
+        
+        # Export Requirements section
+        requirements_frame = ttk.LabelFrame(self.frame, text="Requirements")
+        requirements_frame.grid(row=2, column=1, padx=20, pady=10, sticky="nsew")
+        
+        ttk.Label(requirements_frame, text="Export all requirements data to CSV file").pack(padx=10, pady=5, anchor="w")
+        ttk.Button(requirements_frame, text="Export Requirements", command=self.export_requirements_csv).pack(padx=10, pady=10)
+        
+        # Export Effort Tracking section
+        effort_frame = ttk.LabelFrame(self.frame, text="Effort Tracking")
+        effort_frame.grid(row=3, column=0, padx=20, pady=10, sticky="nsew")
+        
+        ttk.Label(effort_frame, text="Export all effort tracking data to CSV file").pack(padx=10, pady=5, anchor="w")
+        ttk.Button(effort_frame, text="Export Effort Data", command=self.export_effort_csv).pack(padx=10, pady=10)
+        
+        # Export All section
+        all_frame = ttk.LabelFrame(self.frame, text="Export All")
+        all_frame.grid(row=3, column=1, padx=20, pady=10, sticky="nsew")
+        
+        ttk.Label(all_frame, text="Export all project management data to CSV files").pack(padx=10, pady=5, anchor="w")
+        ttk.Button(all_frame, text="Export All Data", command=self.export_all_csv).pack(padx=10, pady=10)
+        
+        # Status section
+        status_frame = ttk.LabelFrame(self.frame, text="Export Status")
+        status_frame.grid(row=4, column=0, columnspan=2, padx=20, pady=10, sticky="ew")
+        
+        self.status_var = tk.StringVar()
+        self.status_var.set("Ready to export")
+        status_label = ttk.Label(status_frame, textvariable=self.status_var)
+        status_label.pack(padx=10, pady=10, fill="x")
+        
+        # Configure grid weights for responsive layout
+        self.frame.columnconfigure(0, weight=1)
+        self.frame.columnconfigure(1, weight=1)
+        
+    def export_projects_csv(self):
+        # Get file path from user
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv")],
+            title="Export Projects"
+        )
+        if not file_path:
+            return
+            
+        try:
+            # Get project data
+            conn = connect_db()
+            cur = conn.cursor()
+            cur.execute("SELECT project_name, owner, project_description, project_scope, target_users, technology_stack, platform FROM projects ORDER BY project_name")
+            projects = cur.fetchall()
+            cur.close()
+            conn.close()
+            
+            # Write to CSV
+            with open(file_path, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(["Project Name", "Owner", "Description", "Scope", "Target Users", "Technology Stack", "Platform"])
+                writer.writerows(projects)
+                
+            self.status_var.set(f"Projects exported successfully to {os.path.basename(file_path)}")
+            messagebox.showinfo("Success", "Projects exported successfully!")
+        except Exception as e:
+            self.status_var.set(f"Error exporting projects: {e}")
+            messagebox.showerror("Error", f"Failed to export projects: {e}")
+            
+    def export_requirements_csv(self):
+        # Get file path from user
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv")],
+            title="Export Requirements"
+        )
+        if not file_path:
+            return
+            
+        try:
+            # Get requirements data
+            conn = connect_db()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT p.project_name, r.requirement_name, r.requirement_type, r.status, r.description
+                FROM requirements r
+                JOIN projects p ON r.project_id = p.id
+                ORDER BY p.project_name, r.requirement_name
+            """)
+            requirements = cur.fetchall()
+            cur.close()
+            conn.close()
+            
+            # Write to CSV
+            with open(file_path, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(["Project", "Requirement Name", "Type", "Status", "Description"])
+                writer.writerows(requirements)
+                
+            self.status_var.set(f"Requirements exported successfully to {os.path.basename(file_path)}")
+            messagebox.showinfo("Success", "Requirements exported successfully!")
+        except Exception as e:
+            self.status_var.set(f"Error exporting requirements: {e}")
+            messagebox.showerror("Error", f"Failed to export requirements: {e}")
+            
+    def export_effort_csv(self):
+        # Get file path from user
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv")],
+            title="Export Effort Tracking"
+        )
+        if not file_path:
+            return
+            
+        try:
+            # Get effort tracking data
+            conn = connect_db()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT p.project_name, r.requirement_name, e.date, 
+                       e.requirements_analysis, e.designing, e.coding, 
+                       e.testing, e.project_management
+                FROM effort_tracking e
+                JOIN requirements r ON e.requirement_id = r.id
+                JOIN projects p ON r.project_id = p.id
+                ORDER BY p.project_name, r.requirement_name, e.date
+            """)
+            effort = cur.fetchall()
+            cur.close()
+            conn.close()
+            
+            # Write to CSV
+            with open(file_path, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(["Project", "Requirement", "Date", "Requirements Analysis", 
+                                "Designing", "Coding", "Testing", "Project Management"])
+                writer.writerows(effort)
+                
+            self.status_var.set(f"Effort tracking data exported successfully to {os.path.basename(file_path)}")
+            messagebox.showinfo("Success", "Effort tracking data exported successfully!")
+        except Exception as e:
+            self.status_var.set(f"Error exporting effort tracking data: {e}")
+            messagebox.showerror("Error", f"Failed to export effort tracking data: {e}")
+            
+    def export_all_csv(self):
+        # Get directory from user
+        directory = filedialog.askdirectory(title="Select Export Directory")
+        if not directory:
+            return
+            
+        success_count = 0
+        try:
+            # Export projects
+            projects_file = os.path.join(directory, "projects_export.csv")
+            conn = connect_db()
+            cur = conn.cursor()
+            
+            # Export projects
+            cur.execute("SELECT project_name, owner, project_description, project_scope, target_users, technology_stack, platform FROM projects ORDER BY project_name")
+            projects = cur.fetchall()
+            with open(projects_file, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(["Project Name", "Owner", "Description", "Scope", "Target Users", "Technology Stack", "Platform"])
+                writer.writerows(projects)
+            success_count += 1
+            
+            # Export requirements
+            requirements_file = os.path.join(directory, "requirements_export.csv")
+            cur.execute("""
+                SELECT p.project_name, r.requirement_name, r.requirement_type, r.status, r.description
+                FROM requirements r
+                JOIN projects p ON r.project_id = p.id
+                ORDER BY p.project_name, r.requirement_name
+            """)
+            requirements = cur.fetchall()
+            with open(requirements_file, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(["Project", "Requirement Name", "Type", "Status", "Description"])
+                writer.writerows(requirements)
+            success_count += 1
+            
+            # Export effort tracking
+            effort_file = os.path.join(directory, "effort_export.csv")
+            cur.execute("""
+                SELECT p.project_name, r.requirement_name, e.date, 
+                       e.requirements_analysis, e.designing, e.coding, 
+                       e.testing, e.project_management
+                FROM effort_tracking e
+                JOIN requirements r ON e.requirement_id = r.id
+                JOIN projects p ON r.project_id = p.id
+                ORDER BY p.project_name, r.requirement_name, e.date
+            """)
+            effort = cur.fetchall()
+            with open(effort_file, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(["Project", "Requirement", "Date", "Requirements Analysis", 
+                                "Designing", "Coding", "Testing", "Project Management"])
+                writer.writerows(effort)
+            success_count += 1
+            
+            cur.close()
+            conn.close()
+            
+            self.status_var.set(f"All data exported successfully to {directory}")
+            messagebox.showinfo("Success", f"All data exported successfully to {directory}!")
+        except Exception as e:
+            self.status_var.set(f"Error exporting data: {e}")
+            messagebox.showerror("Error", f"Failed to export all data: {e} ({success_count} files were exported successfully)")
+
+
 # === PROJECT MANAGEMENT GUI ===
 
 class ProjectManagementApp:
@@ -851,6 +1084,10 @@ class ProjectManagementApp:
         # Add to notebook
         self.notebook.add(self.requirements_tab.frame, text="Requirements")
         self.notebook.add(self.effort_tab.frame, text="Effort Tracking")
+        
+        # Exports Tab
+        self.exports_tab = ExportsTab(self.notebook)
+        self.notebook.add(self.exports_tab.frame, text="Exports")
 
 
     def setup_projects_tab(self):
