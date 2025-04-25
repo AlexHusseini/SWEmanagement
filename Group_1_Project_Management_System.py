@@ -596,10 +596,14 @@ class RisksTab:
         project_name = self.project_combo.get()
         project_id = self.project_map.get(project_name)
         self.tree.delete(*self.tree.get_children())
+        self.risk_details = {}  # Reset risk details
 
+        if not project_id:
+            return
+            
         conn = connect_db()
         cur = conn.cursor()
-        cur.execute("SELECT id, risk_name, risk_description, risk_status FROM risks WHERE project_id = %s", (project_id,))
+        cur.execute("SELECT id, name, description, status FROM risks WHERE project_id = %s", (project_id,))
         self.risk_id_map = {}
         for row in cur.fetchall():
             risk_id, name, desc, status = row
@@ -677,12 +681,12 @@ class RisksTab:
             cur = conn.cursor()
             if risk_id:
                 cur.execute("""
-                    UPDATE risks SET risk_name = %s, risk_description = %s, risk_status = %s
+                    UPDATE risks SET name = %s, description = %s, status = %s
                     WHERE id = %s
                 """, (name.get(), desc.get("1.0", tk.END).strip(), status.get(), risk_id))
             else:
                 cur.execute("""
-                    INSERT INTO risks (project_id, risk_name, risk_description, risk_status)
+                    INSERT INTO risks (project_id, name, description, status)
                     VALUES (%s, %s, %s, %s)
                 """, (project_id, name.get(), desc.get("1.0", tk.END).strip(), status.get()))
             conn.commit()
