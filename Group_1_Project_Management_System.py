@@ -101,13 +101,13 @@ class LoginWindow:
         button_frame.pack(fill=tk.X, pady=5)
         
         # Login button
-        login_button = ttk.Button(button_frame, text="Login", command=self.login, width=15)
-        login_button.pack(side=tk.LEFT, padx=5)
+        login_button = ttk.Button(button_frame, text="Login", command=self.login, width=10)
+        login_button.pack(side=tk.RIGHT, padx=1)
         
         # Skip login button
         if self.skip_allowed:
-            skip_button = ttk.Button(button_frame, text="Skip Login", command=self.skip_login, width=15)
-            skip_button.pack(side=tk.LEFT, padx=5)
+            skip_button = ttk.Button(button_frame, text="Skip Login", command=self.skip_login, width=12)
+            skip_button.pack(side=tk.RIGHT, padx=5)
     
     def setup_register_tab(self, parent):
         """Set up the register tab"""
