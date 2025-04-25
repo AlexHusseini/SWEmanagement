@@ -551,49 +551,176 @@ class RisksTab:
         # Initialize the tab with parent notebook
         self.parent = parent
         self.frame = ttk.Frame(self.parent)
+        self.risk_details = {}  # Store risk details for matrix visualization
+        
+        # Update database schema if needed
+        self.update_risk_table_if_needed()
+        
+        # Set up the UI
         self.setup_ui()
+        
+        # Initialize project data
+        self.load_projects()
+        
+        # Force an initial synchronization after a short delay to ensure UI is ready
+        self.frame.after(100, self.sync_project_dropdowns)
 
     def setup_ui(self):
+        # Create a notebook for Risk tabs
+        self.risk_notebook = ttk.Notebook(self.frame)
+        self.risk_notebook.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Create tabs
+        self.risks_list_tab = ttk.Frame(self.risk_notebook)
+        self.risk_matrix_tab = ttk.Frame(self.risk_notebook)
+        
+        # Add tabs to notebook
+        self.risk_notebook.add(self.risks_list_tab, text="Risk List")
+        self.risk_notebook.add(self.risk_matrix_tab, text="Risk Matrix")
+        
+        # Set up Risk List tab UI
+        self.setup_risk_list_ui()
+        
+        # Set up Risk Matrix tab UI
+        self.setup_risk_matrix_ui()
+        
+    def setup_risk_list_ui(self):
+        # Title 
+        title_label = ttk.Label(self.risks_list_tab, text="Risk Management", font=("Arial", 12, "bold"))
+        title_label.grid(row=0, column=0, columnspan=3, padx=10, pady=(10, 20), sticky='w')
+
         # Dropdown to select the project
-        ttk.Label(self.frame, text="Select Project:").grid(row=0, column=0, padx=10, pady=10, sticky='w')
-        self.project_combo = ttk.Combobox(self.frame, width=40, state="readonly")
-        self.project_combo.grid(row=0, column=1, padx=10, pady=10, sticky='w')
+        ttk.Label(self.risks_list_tab, text="Select Project:").grid(row=1, column=0, padx=10, pady=10, sticky='w')
+        self.project_combo = ttk.Combobox(self.risks_list_tab, width=40, state="readonly")
+        self.project_combo.grid(row=1, column=1, padx=10, pady=10, sticky='w')
         self.project_combo.bind("<<ComboboxSelected>>", self.load_risks)
 
-        # Treeview to show risk entries
-        self.tree = ttk.Treeview(self.frame, columns=("Risk", "Description", "Status"), show='headings')
+        # Add a prominent button to show risk matrix right after project selection
+        matrix_btn = ttk.Button(self.risks_list_tab, text="Show Risk Matrix", 
+                               command=self.show_risk_matrix,
+                               style="Accent.TButton")
+        matrix_btn.grid(row=1, column=2, padx=10, pady=10, sticky='w')
+        
+        # Treeview to show risk entries with enhanced columns
+        self.tree = ttk.Treeview(self.risks_list_tab, columns=("Risk", "Description", "Status"), show='headings')
         self.tree.heading("Risk", text="Risk")
         self.tree.heading("Description", text="Description")
         self.tree.heading("Status", text="Status")
-        self.tree.grid(row=1, column=0, columnspan=3, padx=10, pady=5, sticky="nsew")
+        self.tree.grid(row=2, column=0, columnspan=3, padx=10, pady=5, sticky="nsew")
 
         # Configure row/column resizing behavior
-        self.frame.grid_rowconfigure(1, weight=1)
-        self.frame.grid_columnconfigure(2, weight=1)
+        self.risks_list_tab.grid_rowconfigure(2, weight=1)
+        self.risks_list_tab.grid_columnconfigure(2, weight=1)
 
         # Buttons to Add, Edit, Delete Risk
-        btn_frame = ttk.Frame(self.frame)
-        btn_frame.grid(row=2, column=0, columnspan=3, sticky='e', padx=10, pady=10)
+        btn_frame = ttk.Frame(self.risks_list_tab)
+        btn_frame.grid(row=3, column=0, columnspan=3, sticky='e', padx=10, pady=10)
         ttk.Button(btn_frame, text="Add Risk", command=self.add_risk).pack(side="left", padx=5)
         ttk.Button(btn_frame, text="Edit Risk", command=self.edit_risk).pack(side="left", padx=5)
         ttk.Button(btn_frame, text="Delete Risk", command=self.delete_risk).pack(side="left", padx=5)
+        
+        # Add another visible button at the bottom for showing the matrix
+        ttk.Button(btn_frame, text="View Risk Matrix", command=self.show_risk_matrix,
+                  style="Accent.TButton").pack(side="left", padx=15)
 
         # Load project names into dropdown
         self.load_projects()
 
+    def setup_risk_matrix_ui(self):
+        # Create a custom style for accent buttons
+        style = ttk.Style()
+        style.configure("Accent.TButton", font=("Arial", 10, "bold"))
+        
+        # This frame will contain the matrix visualization
+        self.matrix_frame = ttk.Frame(self.risk_matrix_tab)
+        self.matrix_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Title
+        ttk.Label(self.matrix_frame, 
+                  text="Risk Matrix Visualization", 
+                  font=("Arial", 14, "bold")).pack(pady=(0, 20))
+        
+        # Project selector for risk matrix tab
+        select_frame = ttk.Frame(self.matrix_frame)
+        select_frame.pack(fill="x", pady=10)
+        
+        ttk.Label(select_frame, text="Select Project:").pack(side="left", padx=5)
+        self.matrix_project_combo = ttk.Combobox(select_frame, width=40, state="readonly")
+        self.matrix_project_combo.pack(side="left", padx=5)
+        
+        # Bind the matrix dropdown to also load risks when changed
+        self.matrix_project_combo.bind("<<ComboboxSelected>>", self.load_risks)
+        
+        # Populate the matrix dropdown immediately
+        self.sync_project_dropdowns()
+        
+        # Add binding to notebook to update dropdowns when tab changes
+        self.risk_notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
+        
+        # Button to generate the matrix
+        ttk.Button(select_frame, text="Generate Risk Matrix", 
+                  command=self.show_risk_matrix,
+                  style="Accent.TButton").pack(side="left", padx=5)
+        
+        # Instructions label with improved styling
+        instruction_frame = ttk.Frame(self.matrix_frame)
+        instruction_frame.pack(fill="x", pady=20)
+        
+        ttk.Label(instruction_frame, 
+                 text="Select a project and click 'Generate Risk Matrix' to visualize risks based on impact and probability.",
+                 wraplength=500,
+                 font=("Arial", 10, "italic")).pack(anchor="center")
+    
+    def sync_project_dropdowns(self):
+        """Synchronize both project dropdowns"""
+        if hasattr(self, 'project_combo') and hasattr(self, 'matrix_project_combo'):
+            projects = list(self.project_map.keys()) if hasattr(self, 'project_map') else []
+            
+            # Update both dropdowns
+            self.project_combo['values'] = projects
+            self.matrix_project_combo['values'] = projects
+            
+            # If main dropdown has a selection, copy it to matrix dropdown
+            if self.project_combo.get():
+                self.matrix_project_combo.set(self.project_combo.get())
+            # If matrix dropdown has a selection, copy it to main dropdown
+            elif self.matrix_project_combo.get():
+                self.project_combo.set(self.matrix_project_combo.get())
+    
+    def on_tab_changed(self, event):
+        """Handle tab change event to update dropdowns"""
+        self.sync_project_dropdowns()
+            
     def load_projects(self):
         # Fetch all projects and populate dropdown
         conn = connect_db()
         cur = conn.cursor()
         cur.execute("SELECT id, project_name FROM projects")
         self.project_map = {name: pid for pid, name in cur.fetchall()}
-        self.project_combo['values'] = list(self.project_map.keys())
+        
+        # Synchronize both dropdowns
+        self.sync_project_dropdowns()
+                
         cur.close()
         conn.close()
 
     def load_risks(self, event=None):
-        # Load all risks for the selected project
-        project_name = self.project_combo.get()
+        # Get source of the event
+        is_from_matrix = False
+        if event and event.widget == self.matrix_project_combo:
+            is_from_matrix = True
+        
+        # Get project name from the appropriate dropdown
+        if is_from_matrix:
+            project_name = self.matrix_project_combo.get()
+            # Update main dropdown to match
+            self.project_combo.set(project_name)
+        else:
+            project_name = self.project_combo.get()
+            # Update matrix dropdown to match
+            if hasattr(self, 'matrix_project_combo'):
+                self.matrix_project_combo.set(project_name)
+                
         project_id = self.project_map.get(project_name)
         self.tree.delete(*self.tree.get_children())
         self.risk_details = {}  # Reset risk details
@@ -697,6 +824,543 @@ class RisksTab:
 
         # Save button for the popup
         ttk.Button(win, text="Save", command=submit).grid(row=3, column=1, pady=(3,10), padx=10)
+        
+    def show_risk_matrix(self):
+        """Display risk matrix visualization with proper scaling and background"""
+        # Get project name from appropriate dropdown based on which tab is active
+        current_tab = self.risk_notebook.index(self.risk_notebook.select())
+        
+        if current_tab == 0:  # Risk List tab
+            project_name = self.project_combo.get()
+        else:  # Risk Matrix tab
+            project_name = self.matrix_project_combo.get()
+            
+        if not project_name:
+            messagebox.showwarning("Select Project", "Please select a project first")
+            return
+            
+        # Create a new window for the matrix
+        matrix_win = tk.Toplevel(self.frame)
+        matrix_win.title(f"Risk Matrix - {project_name}")
+        matrix_win.geometry("900x750")  # Increased size to accommodate larger margins
+        matrix_win.configure(background="#f0f0f0")  # Light gray background
+        matrix_win.resizable(True, True)  # Allow resizing
+        
+        # Main frame to hold everything
+        main_frame = ttk.Frame(matrix_win, padding=10, style="Main.TFrame")
+        main_frame.pack(fill="both", expand=True)
+        
+        # Configure styles
+        style = ttk.Style()
+        style.configure("Main.TFrame", background="#f0f0f0")
+        style.configure("Header.TLabel", font=("Arial", 16, "bold"), background="#f0f0f0")
+        style.configure("Subheader.TLabel", font=("Arial", 11), background="#f0f0f0", foreground="#555555")
+        style.configure("Footer.TLabel", font=("Arial", 10, "italic"), background="#f0f0f0")
+        
+        # Header section
+        header_frame = ttk.Frame(main_frame, style="Main.TFrame")
+        header_frame.pack(fill="x", pady=(0, 10))
+        
+        ttk.Label(header_frame, 
+                 text=f"Risk Matrix: {project_name}", 
+                 style="Header.TLabel").pack(anchor="w")
+        
+        ttk.Label(header_frame, 
+                 text="Visualization of project risks based on impact and probability", 
+                 style="Subheader.TLabel").pack(anchor="w", pady=(0, 10))
+        
+        # Matrix frame - will contain the actual visualization
+        matrix_frame = ttk.Frame(main_frame, style="Main.TFrame")
+        matrix_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Define matrix dimensions and spacing
+        # These are carefully calculated to fit properly
+        matrix_cell_size = 80  # Size of each cell
+        matrix_width = 5 * matrix_cell_size  # 5 columns
+        matrix_height = 5 * matrix_cell_size  # 5 rows
+        left_margin = 130  # Space for impact labels - increased
+        top_margin = 100   # Space for probability labels - increased
+        right_margin = 20  # Additional right margin
+        bottom_margin = 20  # Additional bottom margin
+        
+        # Calculate total canvas size
+        canvas_width = left_margin + matrix_width + right_margin
+        canvas_height = top_margin + matrix_height + bottom_margin
+        
+        # Create canvas that will hold the matrix
+        canvas = tk.Canvas(matrix_frame, 
+                          width=canvas_width, 
+                          height=canvas_height,
+                          background="#f0f0f0",  # Match the background
+                          highlightthickness=0)  # Remove border
+        canvas.pack(fill="both", expand=True)
+        
+        # Define colors for matrix cells - using more professional color scheme
+        colors = {
+            "critical": "#e53935",  # Red
+            "high": "#f57c00",      # Orange
+            "medium": "#fbc02d",    # Amber
+            "low": "#7cb342"        # Green
+        }
+        
+        # Draw matrix cells with shadow effect
+        for i in range(5):  # Rows (impact)
+            for j in range(5):  # Columns (probability)
+                # Calculate priority value
+                priority = (5-i) * (j+1)  # Impact (5-i) * Probability (j+1)
+                
+                # Get cell color based on priority
+                if priority >= 16:
+                    color = colors["critical"]
+                    border_color = "#c62828"  # Darker red
+                elif priority >= 10:
+                    color = colors["high"]
+                    border_color = "#e65100"  # Darker orange
+                elif priority >= 5:
+                    color = colors["medium"]
+                    border_color = "#f9a825"  # Darker amber
+                else:
+                    color = colors["low"]
+                    border_color = "#558b2f"  # Darker green
+                
+                # Cell position
+                x1 = left_margin + j * matrix_cell_size
+                y1 = top_margin + i * matrix_cell_size
+                x2 = x1 + matrix_cell_size
+                y2 = y1 + matrix_cell_size
+                
+                # Draw subtle shadow for 3D effect
+                canvas.create_rectangle(
+                    x1+3, y1+3, x2+3, y2+3,
+                    fill="#d0d0d0", outline="", width=0
+                )
+                
+                # Draw cell
+                cell_id = canvas.create_rectangle(
+                    x1, y1, x2, y2,
+                    fill=color, outline=border_color, width=2
+                )
+                
+                # Add priority text
+                canvas.create_text(
+                    x1 + matrix_cell_size/2,
+                    y1 + matrix_cell_size/2,
+                    text=str(priority),
+                    font=("Arial", 11, "bold"),
+                    fill="#ffffff"  # White text for better contrast
+                )
+        
+        # Draw axis titles with improved positioning
+        canvas.create_text(
+            20,  # Moved even further left to avoid any overlap
+            top_margin + matrix_height/2,
+            text="IMPACT",
+            font=("Arial", 12, "bold"),
+            angle=90,
+            anchor="center",
+            fill="#333333"
+        )
+        
+        canvas.create_text(
+            left_margin + matrix_width/2, 
+            20,  # Moved even higher to avoid any overlap
+            text="PROBABILITY",
+            font=("Arial", 12, "bold"),
+            anchor="center",
+            fill="#333333"
+        )
+        
+        # Draw impact axis labels (y-axis) with more spacing
+        impact_labels = ["Severe (5)", "Significant (4)", "Moderate (3)", "Minor (2)", "Minimal (1)"]
+        for i, label in enumerate(impact_labels):
+            y = top_margin + i * matrix_cell_size + matrix_cell_size/2
+            canvas.create_text(
+                left_margin - 15,  # Increased distance from matrix even more
+                y,
+                text=label,
+                font=("Arial", 10),
+                anchor="e",
+                fill="#333333"
+            )
+        
+        # Draw probability axis labels (x-axis) with more spacing
+        prob_labels = ["Rare (1)", "Unlikely (2)", "Possible (3)", "Likely (4)", "Almost Certain (5)"]
+        for j, label in enumerate(prob_labels):
+            x = left_margin + j * matrix_cell_size + matrix_cell_size/2
+            canvas.create_text(
+                x, 
+                top_margin - 15,  # Increased distance from matrix even more
+                text=label,
+                font=("Arial", 10),
+                anchor="s",
+                fill="#333333"
+            )
+            
+        # Fetch risks data for the selected project
+        conn = connect_db()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, name, description, status, 
+                   COALESCE(impact, 3) as impact,  
+                   COALESCE(probability, 3) as probability
+            FROM risks 
+            WHERE project_id = %s
+        """, (self.project_map[project_name],))
+        
+        # Store risk data
+        risks = {}
+        risk_positions = {}
+        
+        for row in cur.fetchall():
+            risk_id, name, desc, status, impact, probability = row
+            # Use default values if none stored
+            impact = impact if impact else 3
+            probability = probability if probability else 3
+            
+            # Store risk data
+            risks[risk_id] = {
+                'name': name,
+                'description': desc,
+                'impact': impact,
+                'probability': probability,
+                'priority': impact * probability,
+                'status': status
+            }
+            
+            # Calculate cell position for this risk
+            cell_x = probability - 1
+            cell_y = 5 - impact
+            
+            # Track risks in each cell
+            cell_key = f"{cell_x},{cell_y}"
+            if cell_key not in risk_positions:
+                risk_positions[cell_key] = []
+            risk_positions[cell_key].append(risk_id)
+        
+        cur.close()
+        conn.close()
+        
+        # Plot risks on the matrix
+        for cell_key, risk_ids in risk_positions.items():
+            cell_x, cell_y = map(int, cell_key.split(','))
+            num_risks = len(risk_ids)
+            
+            # Base position for this cell
+            base_x = left_margin + cell_x * matrix_cell_size + matrix_cell_size/2
+            base_y = top_margin + cell_y * matrix_cell_size + matrix_cell_size/2
+            
+            # Choose visualization based on number of risks in cell
+            if num_risks == 1:
+                # Single risk
+                self._draw_risk_dot(canvas, base_x, base_y, risk_ids[0], risks)
+            elif num_risks == 2:
+                # Two risks side by side
+                self._draw_risk_dot(canvas, base_x - 15, base_y, risk_ids[0], risks)
+                self._draw_risk_dot(canvas, base_x + 15, base_y, risk_ids[1], risks)
+            elif num_risks == 3:
+                # Three risks in triangle
+                self._draw_risk_dot(canvas, base_x, base_y - 15, risk_ids[0], risks)
+                self._draw_risk_dot(canvas, base_x - 15, base_y + 10, risk_ids[1], risks)
+                self._draw_risk_dot(canvas, base_x + 15, base_y + 10, risk_ids[2], risks)
+            elif num_risks == 4:
+                # Four risks in square
+                self._draw_risk_dot(canvas, base_x - 15, base_y - 15, risk_ids[0], risks)
+                self._draw_risk_dot(canvas, base_x + 15, base_y - 15, risk_ids[1], risks)
+                self._draw_risk_dot(canvas, base_x - 15, base_y + 15, risk_ids[2], risks)
+                self._draw_risk_dot(canvas, base_x + 15, base_y + 15, risk_ids[3], risks)
+            else:
+                # More than 4 risks - show count
+                # Draw shadow for 3D effect
+                canvas.create_oval(
+                    base_x - 18 + 2, base_y - 18 + 2, 
+                    base_x + 18 + 2, base_y + 18 + 2, 
+                    fill="#d0d0d0", outline=""
+                )
+                # Draw main circle
+                circle_id = canvas.create_oval(
+                    base_x - 20, base_y - 20, 
+                    base_x + 20, base_y + 20, 
+                    fill="#3949ab", outline="#1a237e", width=2
+                )
+                text_id = canvas.create_text(
+                    base_x, base_y, 
+                    text=f"{num_risks}", 
+                    fill="white", 
+                    font=("Arial", 11, "bold")
+                )
+                
+                # Create tooltip text
+                tooltip_text = f"Multiple risks ({num_risks}) in this cell:\n\n"
+                for i, risk_id in enumerate(risk_ids):
+                    tooltip_text += f"{i+1}. {risks[risk_id]['name']}\n"
+                
+                # Bind hover events for multiple risks indicator
+                self._bind_tooltip(canvas, circle_id, tooltip_text)
+                self._bind_tooltip(canvas, text_id, tooltip_text)
+        
+        # Legend section
+        legend_frame = ttk.LabelFrame(main_frame, text="Risk Priority Legend", padding=10)
+        legend_frame.pack(fill="x", pady=10)
+        
+        # Create legend items
+        legend_items = [
+            ("Low (1-4)", colors["low"]),
+            ("Medium (5-9)", colors["medium"]),
+            ("High (10-15)", colors["high"]),
+            ("Critical (16-25)", colors["critical"])
+        ]
+        
+        # Layout legend items horizontally
+        for text, color in legend_items:
+            item_frame = ttk.Frame(legend_frame)
+            item_frame.pack(side="left", padx=20, pady=2)
+            
+            # Color box
+            color_box = tk.Canvas(item_frame, width=20, height=20, bg="#f0f0f0", highlightthickness=0)
+            color_box.create_rectangle(0, 0, 18, 18, fill=color, outline="#666666")
+            color_box.pack(side="left", padx=5)
+            
+            # Text label
+            ttk.Label(item_frame, text=text).pack(side="left")
+        
+        # Instructions at the bottom
+        footer_frame = ttk.Frame(main_frame, style="Main.TFrame")
+        footer_frame.pack(fill="x", pady=10)
+        
+        ttk.Label(
+            footer_frame, 
+            text="Hover over risk indicators to see details. Blue dots show individual risks.",
+            style="Footer.TLabel"
+        ).pack(side="left")
+        
+        ttk.Button(
+            footer_frame, 
+            text="Close", 
+            command=matrix_win.destroy
+        ).pack(side="right")
+        
+        # Store active tooltips
+        self.active_tooltips = {}
+        
+        # Store risk data for tooltips
+        self.current_risks = risks
+        
+        # Cleanup on window close
+        def on_window_close():
+            if hasattr(self, 'active_tooltips'):
+                for tooltip in self.active_tooltips.values():
+                    if tooltip and tooltip.winfo_exists():
+                        tooltip.destroy()
+            matrix_win.destroy()
+            
+        matrix_win.protocol("WM_DELETE_WINDOW", on_window_close)
+    
+    def _draw_risk_dot(self, canvas, x, y, risk_id, risks):
+        """Draw a single risk dot on the matrix"""
+        # Draw shadow for 3D effect
+        shadow_id = canvas.create_oval(
+            x - 10 + 2, y - 10 + 2, 
+            x + 10 + 2, y + 10 + 2, 
+            fill="#d0d0d0", outline=""
+        )
+        
+        # Different shade of blue for each risk
+        fill_color = "#3f51b5"  # Indigo
+        outline_color = "#303f9f"  # Darker indigo
+        
+        # Draw dot
+        dot_id = canvas.create_oval(
+            x - 12, y - 12, 
+            x + 12, y + 12, 
+            fill=fill_color, outline=outline_color, width=2
+        )
+        
+        # Add risk ID
+        text_id = canvas.create_text(
+            x, y, 
+            text=str(risk_id), 
+            fill="white", 
+            font=("Arial", 9, "bold")
+        )
+        
+        # Prepare tooltip text
+        risk = risks[risk_id]
+        tooltip_text = f"Risk ID: {risk_id}\n"
+        tooltip_text += f"Name: {risk['name']}\n"
+        if risk['description']:
+            tooltip_text += f"Description: {risk['description'][:50]}...\n" if len(risk['description']) > 50 else f"Description: {risk['description']}\n"
+        tooltip_text += f"Impact: {risk['impact']}\n"
+        tooltip_text += f"Probability: {risk['probability']}\n"
+        tooltip_text += f"Priority: {risk['priority']}\n"
+        tooltip_text += f"Status: {risk['status']}\n"
+        
+        # Bind tooltip to both dot and text
+        self._bind_tooltip(canvas, dot_id, tooltip_text)
+        self._bind_tooltip(canvas, text_id, tooltip_text)
+        
+    def _bind_tooltip(self, canvas, item_id, tooltip_text):
+        """Bind tooltip to canvas item"""
+        canvas.tag_bind(item_id, "<Enter>", lambda e, id=item_id, txt=tooltip_text: self._show_tooltip(e, id, txt))
+        canvas.tag_bind(item_id, "<Leave>", lambda e, id=item_id: self._hide_tooltip(id))
+        
+    def _show_tooltip(self, event, item_id, tooltip_text):
+        """Show tooltip when hovering over an item"""
+        # Hide any existing tooltip for this item
+        self._hide_tooltip(item_id)
+        
+        # Create new tooltip
+        tooltip = tk.Toplevel()
+        tooltip.wm_overrideredirect(True)  # Remove window border
+        
+        # Position near mouse
+        tooltip.geometry(f"+{event.x_root+15}+{event.y_root+10}")
+        
+        # Create tooltip content
+        frame = ttk.Frame(tooltip, relief="solid", borderwidth=1)
+        frame.pack(fill="both", expand=True)
+        
+        label = ttk.Label(
+            frame, 
+            text=tooltip_text,
+            background="#fffde7",  # Light yellow
+            padding=8,
+            justify="left",
+            font=("Arial", 10)
+        )
+        label.pack()
+        
+        # Store tooltip reference
+        self.active_tooltips[item_id] = tooltip
+        
+    def _hide_tooltip(self, item_id):
+        """Hide tooltip when mouse leaves an item"""
+        if item_id in self.active_tooltips:
+            tooltip = self.active_tooltips[item_id]
+            if tooltip and tooltip.winfo_exists():
+                tooltip.destroy()
+            self.active_tooltips[item_id] = None
+
+    def update_risk_table_if_needed(self):
+        """Check if the risks table needs to be updated with impact and probability columns"""
+        try:
+            conn = connect_db()
+            cur = conn.cursor()
+            
+            # First make sure the risks table exists
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'risks'
+                )
+            """)
+            
+            table_exists = cur.fetchone()[0]
+            if not table_exists:
+                # Create the risks table if it doesn't exist
+                cur.execute("""
+                    CREATE TABLE risks (
+                        id SERIAL PRIMARY KEY,
+                        project_id INTEGER NOT NULL,
+                        name TEXT NOT NULL,
+                        description TEXT,
+                        status TEXT,
+                        impact INTEGER DEFAULT 3,
+                        probability INTEGER DEFAULT 3,
+                        priority INTEGER DEFAULT 9,
+                        mitigation_strategy TEXT
+                    )
+                """)
+                conn.commit()
+                print("Created risks table")
+            
+            # Check if impact column exists
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns 
+                    WHERE table_name = 'risks' AND column_name = 'impact'
+                )
+            """)
+            impact_exists = cur.fetchone()[0]
+            
+            # Check if probability column exists
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns 
+                    WHERE table_name = 'risks' AND column_name = 'probability'
+                )
+            """)
+            probability_exists = cur.fetchone()[0]
+            
+            # If columns don't exist, add them
+            if not impact_exists:
+                cur.execute("ALTER TABLE risks ADD COLUMN impact INTEGER DEFAULT 3")
+                print("Added impact column to risks table")
+                
+            if not probability_exists:
+                cur.execute("ALTER TABLE risks ADD COLUMN probability INTEGER DEFAULT 3")
+                print("Added probability column to risks table")
+                
+            # Add priority column if it doesn't exist
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns 
+                    WHERE table_name = 'risks' AND column_name = 'priority'
+                )
+            """)
+            priority_exists = cur.fetchone()[0]
+            
+            if not priority_exists:
+                cur.execute("ALTER TABLE risks ADD COLUMN priority INTEGER DEFAULT 9")
+                print("Added priority column to risks table")
+                
+            # Add mitigation_strategy column if it doesn't exist
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns 
+                    WHERE table_name = 'risks' AND column_name = 'mitigation_strategy'
+                )
+            """)
+            mitigation_exists = cur.fetchone()[0]
+            
+            if not mitigation_exists:
+                cur.execute("ALTER TABLE risks ADD COLUMN mitigation_strategy TEXT DEFAULT ''")
+                print("Added mitigation_strategy column to risks table")
+                
+            # Check for the old columns to handle the transition
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns 
+                    WHERE table_name = 'risks' AND column_name = 'risk_name'
+                )
+            """)
+            old_name_exists = cur.fetchone()[0]
+            
+            if old_name_exists:
+                # Rename the columns if using the old naming convention
+                print("Converting old risk column names to new format...")
+                cur.execute("ALTER TABLE risks RENAME COLUMN risk_name TO name")
+                cur.execute("ALTER TABLE risks RENAME COLUMN risk_description TO description")
+                cur.execute("ALTER TABLE risks RENAME COLUMN risk_status TO status")
+                print("Column names updated successfully")
+            
+            # If we have risks without impact/probability, calculate default values
+            cur.execute("""
+                UPDATE risks 
+                SET impact = 3,
+                    probability = 3,
+                    priority = 9
+                WHERE impact IS NULL OR probability IS NULL OR priority IS NULL
+            """)
+            
+            # Commit all changes
+            conn.commit()
+            print("Risk table schema update complete")
+            
+            cur.close()
+            conn.close()
+        except Exception as e:
+            print(f"Error updating risk table: {e}")
+            messagebox.showerror("Database Error", f"Error updating risk table: {e}")
 
 
 # === REQUIREMENTS TAB ===
