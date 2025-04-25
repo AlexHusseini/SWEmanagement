@@ -8,6 +8,16 @@ import os
 import hashlib
 import re
 
+# Optional ReportLab import - for PDF export
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
+
 # PostgreSQL connection configuration
 DB_NAME = "project_management"
 DB_USER = "your_username"
@@ -1124,40 +1134,62 @@ class ExportsTab:
         title_label.grid(row=0, column=0, columnspan=2, padx=20, pady=20)
         
         # Description label
-        desc_label = ttk.Label(self.frame, text="Select data to export and choose CSV format for export.")
+        desc_label = ttk.Label(self.frame, text="Select data to export in CSV or PDF format.")
         desc_label.grid(row=1, column=0, columnspan=2, padx=20, pady=5, sticky="w")
         
         # Export Projects section
         projects_frame = ttk.LabelFrame(self.frame, text="Projects")
         projects_frame.grid(row=2, column=0, padx=20, pady=10, sticky="nsew")
         
-        ttk.Label(projects_frame, text="Export all project data to CSV file").pack(padx=10, pady=5, anchor="w")
-        ttk.Button(projects_frame, text="Export Projects", command=self.export_projects_csv).pack(padx=10, pady=10)
+        ttk.Label(projects_frame, text="Export all project data").pack(padx=10, pady=5, anchor="w")
+        proj_btn_frame = ttk.Frame(projects_frame)
+        proj_btn_frame.pack(padx=10, pady=10)
+        ttk.Button(proj_btn_frame, text="CSV", command=self.export_projects_csv).pack(side="left", padx=5)
+        ttk.Button(proj_btn_frame, text="PDF", command=self.export_projects_pdf).pack(side="left", padx=5)
         
         # Export Requirements section
         requirements_frame = ttk.LabelFrame(self.frame, text="Requirements")
         requirements_frame.grid(row=2, column=1, padx=20, pady=10, sticky="nsew")
         
-        ttk.Label(requirements_frame, text="Export all requirements data to CSV file").pack(padx=10, pady=5, anchor="w")
-        ttk.Button(requirements_frame, text="Export Requirements", command=self.export_requirements_csv).pack(padx=10, pady=10)
+        ttk.Label(requirements_frame, text="Export all requirements data").pack(padx=10, pady=5, anchor="w")
+        req_btn_frame = ttk.Frame(requirements_frame)
+        req_btn_frame.pack(padx=10, pady=10)
+        ttk.Button(req_btn_frame, text="CSV", command=self.export_requirements_csv).pack(side="left", padx=5)
+        ttk.Button(req_btn_frame, text="PDF", command=self.export_requirements_pdf).pack(side="left", padx=5)
         
         # Export Effort Tracking section
         effort_frame = ttk.LabelFrame(self.frame, text="Effort Tracking")
         effort_frame.grid(row=3, column=0, padx=20, pady=10, sticky="nsew")
         
-        ttk.Label(effort_frame, text="Export all effort tracking data to CSV file").pack(padx=10, pady=5, anchor="w")
-        ttk.Button(effort_frame, text="Export Effort Data", command=self.export_effort_csv).pack(padx=10, pady=10)
+        ttk.Label(effort_frame, text="Export all effort tracking data").pack(padx=10, pady=5, anchor="w")
+        eff_btn_frame = ttk.Frame(effort_frame)
+        eff_btn_frame.pack(padx=10, pady=10)
+        ttk.Button(eff_btn_frame, text="CSV", command=self.export_effort_csv).pack(side="left", padx=5)
+        ttk.Button(eff_btn_frame, text="PDF", command=self.export_effort_pdf).pack(side="left", padx=5)
+        
+        # Export Risks section
+        risks_frame = ttk.LabelFrame(self.frame, text="Risks")
+        risks_frame.grid(row=3, column=1, padx=20, pady=10, sticky="nsew")
+        
+        ttk.Label(risks_frame, text="Export all risk management data").pack(padx=10, pady=5, anchor="w")
+        risk_btn_frame = ttk.Frame(risks_frame)
+        risk_btn_frame.pack(padx=10, pady=10)
+        ttk.Button(risk_btn_frame, text="CSV", command=self.export_risks_csv).pack(side="left", padx=5)
+        ttk.Button(risk_btn_frame, text="PDF", command=self.export_risks_pdf).pack(side="left", padx=5)
         
         # Export All section
         all_frame = ttk.LabelFrame(self.frame, text="Export All")
-        all_frame.grid(row=3, column=1, padx=20, pady=10, sticky="nsew")
+        all_frame.grid(row=4, column=0, columnspan=2, padx=20, pady=10, sticky="nsew")
         
-        ttk.Label(all_frame, text="Export all project management data to CSV files").pack(padx=10, pady=5, anchor="w")
-        ttk.Button(all_frame, text="Export All Data", command=self.export_all_csv).pack(padx=10, pady=10)
+        ttk.Label(all_frame, text="Export all project management data").pack(padx=10, pady=5, anchor="w")
+        all_btn_frame = ttk.Frame(all_frame)
+        all_btn_frame.pack(padx=10, pady=10)
+        ttk.Button(all_btn_frame, text="CSV", command=self.export_all_csv).pack(side="left", padx=5)
+        ttk.Button(all_btn_frame, text="PDF", command=self.export_all_pdf).pack(side="left", padx=5)
         
         # Status section
         status_frame = ttk.LabelFrame(self.frame, text="Export Status")
-        status_frame.grid(row=4, column=0, columnspan=2, padx=20, pady=10, sticky="ew")
+        status_frame.grid(row=5, column=0, columnspan=2, padx=20, pady=10, sticky="ew")
         
         self.status_var = tk.StringVar()
         self.status_var.set("Ready to export")
@@ -1167,7 +1199,562 @@ class ExportsTab:
         # Configure grid weights for responsive layout
         self.frame.columnconfigure(0, weight=1)
         self.frame.columnconfigure(1, weight=1)
+    
+    def check_reportlab(self):
+        """Check if ReportLab is available, show message if not"""
+        if not REPORTLAB_AVAILABLE:
+            messagebox.showwarning(
+                "ReportLab Not Available", 
+                "PDF export requires the ReportLab library.\n\n"
+                "To install it, run: pip install reportlab"
+            )
+            return False
+        return True
         
+    def export_projects_pdf(self):
+        """Export projects to PDF format"""
+        if not self.check_reportlab():
+            return
+            
+        # Get file path from user
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".pdf",
+            filetypes=[("PDF files", "*.pdf")],
+            title="Export Projects to PDF"
+        )
+        if not file_path:
+            return
+            
+        try:
+            # Get project data
+            conn = connect_db()
+            cur = conn.cursor()
+            cur.execute("SELECT project_name, owner, project_description, project_scope, target_users, technology_stack, platform FROM projects ORDER BY project_name")
+            projects = cur.fetchall()
+            cur.close()
+            conn.close()
+            
+            # Create PDF
+            doc = SimpleDocTemplate(file_path, pagesize=letter)
+            styles = getSampleStyleSheet()
+            elements = []
+            
+            # Add title
+            title = Paragraph("Project Management System - Projects Report", styles['Title'])
+            elements.append(title)
+            elements.append(Spacer(1, 20))
+            
+            # Add date
+            date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            date_paragraph = Paragraph(f"Generated on: {date_str}", styles['Normal'])
+            elements.append(date_paragraph)
+            elements.append(Spacer(1, 20))
+            
+            # Create table data
+            table_data = [["Project Name", "Owner", "Description", "Scope", "Target Users", "Tech Stack", "Platform"]]
+            for project in projects:
+                # Truncate long fields
+                desc = project[2][:100] + "..." if len(project[2]) > 100 else project[2]
+                scope = project[3][:100] + "..." if len(project[3]) > 100 else project[3]
+                
+                table_data.append([
+                    project[0],  # project_name
+                    project[1],  # owner
+                    desc,        # description (truncated)
+                    scope,       # scope (truncated)
+                    project[4],  # target_users
+                    project[5],  # tech_stack
+                    project[6]   # platform
+                ])
+            
+            # Create the table
+            table = Table(table_data, repeatRows=1)
+            
+            # Add style to the table
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            
+            elements.append(table)
+            
+            # Build PDF
+            doc.build(elements)
+            
+            self.status_var.set(f"Projects exported successfully to {os.path.basename(file_path)}")
+            messagebox.showinfo("Success", "Projects exported successfully to PDF!")
+        except Exception as e:
+            self.status_var.set(f"Error exporting projects to PDF: {e}")
+            messagebox.showerror("Error", f"Failed to export projects to PDF: {e}")
+    
+    def export_requirements_pdf(self):
+        """Export requirements to PDF format"""
+        if not self.check_reportlab():
+            return
+            
+        # Get file path from user
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".pdf",
+            filetypes=[("PDF files", "*.pdf")],
+            title="Export Requirements to PDF"
+        )
+        if not file_path:
+            return
+            
+        try:
+            # Get requirements data
+            conn = connect_db()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT p.project_name, r.requirement_name, r.requirement_type, r.status, r.description
+                FROM requirements r
+                JOIN projects p ON r.project_id = p.id
+                ORDER BY p.project_name, r.requirement_name
+            """)
+            requirements = cur.fetchall()
+            cur.close()
+            conn.close()
+            
+            # Create PDF
+            doc = SimpleDocTemplate(file_path, pagesize=letter)
+            styles = getSampleStyleSheet()
+            elements = []
+            
+            # Add title
+            title = Paragraph("Project Management System - Requirements Report", styles['Title'])
+            elements.append(title)
+            elements.append(Spacer(1, 20))
+            
+            # Add date
+            date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            date_paragraph = Paragraph(f"Generated on: {date_str}", styles['Normal'])
+            elements.append(date_paragraph)
+            elements.append(Spacer(1, 20))
+            
+            # Create table data
+            table_data = [["Project", "Requirement Name", "Type", "Status", "Description"]]
+            for req in requirements:
+                # Truncate description
+                desc = req[4][:100] + "..." if len(req[4]) > 100 else req[4]
+                
+                table_data.append([
+                    req[0],  # project_name
+                    req[1],  # requirement_name
+                    req[2],  # requirement_type
+                    req[3],  # status
+                    desc     # description (truncated)
+                ])
+            
+            # Create the table
+            table = Table(table_data, repeatRows=1)
+            
+            # Add style to the table
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            
+            elements.append(table)
+            
+            # Build PDF
+            doc.build(elements)
+            
+            self.status_var.set(f"Requirements exported successfully to {os.path.basename(file_path)}")
+            messagebox.showinfo("Success", "Requirements exported successfully to PDF!")
+        except Exception as e:
+            self.status_var.set(f"Error exporting requirements to PDF: {e}")
+            messagebox.showerror("Error", f"Failed to export requirements to PDF: {e}")
+    
+    def export_effort_pdf(self):
+        """Export effort tracking data to PDF format"""
+        if not self.check_reportlab():
+            return
+            
+        # Get file path from user
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".pdf",
+            filetypes=[("PDF files", "*.pdf")],
+            title="Export Effort Tracking to PDF"
+        )
+        if not file_path:
+            return
+            
+        try:
+            # Get effort tracking data
+            conn = connect_db()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT p.project_name, r.requirement_name, e.date, 
+                       e.requirements_analysis, e.designing, e.coding, 
+                       e.testing, e.project_management
+                FROM effort_tracking e
+                JOIN requirements r ON e.requirement_id = r.id
+                JOIN projects p ON r.project_id = p.id
+                ORDER BY p.project_name, r.requirement_name, e.date
+            """)
+            effort = cur.fetchall()
+            cur.close()
+            conn.close()
+            
+            # Create PDF
+            doc = SimpleDocTemplate(file_path, pagesize=letter)
+            styles = getSampleStyleSheet()
+            elements = []
+            
+            # Add title
+            title = Paragraph("Project Management System - Effort Tracking Report", styles['Title'])
+            elements.append(title)
+            elements.append(Spacer(1, 20))
+            
+            # Add date
+            date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            date_paragraph = Paragraph(f"Generated on: {date_str}", styles['Normal'])
+            elements.append(date_paragraph)
+            elements.append(Spacer(1, 20))
+            
+            # Create table data
+            table_data = [["Project", "Requirement", "Date", "Req. Analysis", "Design", "Coding", "Testing", "PM"]]
+            for entry in effort:
+                table_data.append([
+                    entry[0],  # project_name
+                    entry[1],  # requirement_name
+                    entry[2],  # date
+                    entry[3],  # requirements_analysis
+                    entry[4],  # designing
+                    entry[5],  # coding
+                    entry[6],  # testing
+                    entry[7]   # project_management
+                ])
+            
+            # Create the table
+            table = Table(table_data, repeatRows=1)
+            
+            # Add style to the table
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            
+            elements.append(table)
+            
+            # Build PDF
+            doc.build(elements)
+            
+            self.status_var.set(f"Effort tracking data exported successfully to {os.path.basename(file_path)}")
+            messagebox.showinfo("Success", "Effort tracking data exported successfully to PDF!")
+        except Exception as e:
+            self.status_var.set(f"Error exporting effort tracking data to PDF: {e}")
+            messagebox.showerror("Error", f"Failed to export effort tracking data to PDF: {e}")
+    
+    def export_risks_csv(self):
+        # Get file path from user
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv")],
+            title="Export Risks"
+        )
+        if not file_path:
+            return
+            
+        try:
+            # Get risks data
+            conn = connect_db()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT p.project_name, r.name, r.description, r.risk_status
+                FROM risks r
+                JOIN projects p ON r.project_id = p.id
+                ORDER BY p.project_name, r.name
+            """)
+            risks = cur.fetchall()
+            cur.close()
+            conn.close()
+            
+            # Write to CSV
+            with open(file_path, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(["Project", "Risk Name", "Description", "Status"])
+                writer.writerows(risks)
+                
+            self.status_var.set(f"Risks exported successfully to {os.path.basename(file_path)}")
+            messagebox.showinfo("Success", "Risks exported successfully!")
+        except Exception as e:
+            self.status_var.set(f"Error exporting risks: {e}")
+            messagebox.showerror("Error", f"Failed to export risks: {e}")
+    
+    def export_risks_pdf(self):
+        """Export risks to PDF format"""
+        if not self.check_reportlab():
+            return
+            
+        # Get file path from user
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".pdf",
+            filetypes=[("PDF files", "*.pdf")],
+            title="Export Risks to PDF"
+        )
+        if not file_path:
+            return
+            
+        try:
+            # Get risks data
+            conn = connect_db()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT p.project_name, r.name, r.description, r.risk_status
+                FROM risks r
+                JOIN projects p ON r.project_id = p.id
+                ORDER BY p.project_name, r.name
+            """)
+            risks = cur.fetchall()
+            cur.close()
+            conn.close()
+            
+            # Create PDF
+            doc = SimpleDocTemplate(file_path, pagesize=letter)
+            styles = getSampleStyleSheet()
+            elements = []
+            
+            # Add title
+            title = Paragraph("Project Management System - Risk Management Report", styles['Title'])
+            elements.append(title)
+            elements.append(Spacer(1, 20))
+            
+            # Add date
+            date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            date_paragraph = Paragraph(f"Generated on: {date_str}", styles['Normal'])
+            elements.append(date_paragraph)
+            elements.append(Spacer(1, 20))
+            
+            # Create table data
+            table_data = [["Project", "Risk", "Description", "Status"]]
+            for risk in risks:
+                # Truncate description
+                desc = risk[2][:100] + "..." if len(risk[2]) > 100 else risk[2]
+                
+                table_data.append([
+                    risk[0],  # project_name
+                    risk[1],  # name
+                    desc,     # description (truncated)
+                    risk[3]   # status
+                ])
+            
+            # Create the table
+            table = Table(table_data, repeatRows=1)
+            
+            # Add style to the table
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            
+            elements.append(table)
+            
+            # Build PDF
+            doc.build(elements)
+            
+            self.status_var.set(f"Risks exported successfully to {os.path.basename(file_path)}")
+            messagebox.showinfo("Success", "Risks exported successfully to PDF!")
+        except Exception as e:
+            self.status_var.set(f"Error exporting risks to PDF: {e}")
+            messagebox.showerror("Error", f"Failed to export risks to PDF: {e}")
+    
+    def export_all_pdf(self):
+        """Export all data to PDF format"""
+        if not self.check_reportlab():
+            return
+            
+        # Get directory from user
+        directory = filedialog.askdirectory(title="Select Export Directory")
+        if not directory:
+            return
+            
+        success_count = 0
+        try:
+            # Connect to database
+            conn = connect_db()
+            cur = conn.cursor()
+            
+            # Export projects
+            projects_file = os.path.join(directory, "projects_export.pdf")
+            try:
+                # Get project data
+                cur.execute("SELECT project_name, owner, project_description, project_scope, target_users, technology_stack, platform FROM projects ORDER BY project_name")
+                projects = cur.fetchall()
+                
+                # Create PDF
+                doc = SimpleDocTemplate(projects_file, pagesize=letter)
+                styles = getSampleStyleSheet()
+                elements = []
+                
+                # Add title
+                title = Paragraph("Project Management System - Projects Report", styles['Title'])
+                elements.append(title)
+                elements.append(Spacer(1, 20))
+                
+                # Add date
+                date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                date_paragraph = Paragraph(f"Generated on: {date_str}", styles['Normal'])
+                elements.append(date_paragraph)
+                elements.append(Spacer(1, 20))
+                
+                # Create table data
+                table_data = [["Project Name", "Owner", "Description", "Scope", "Target Users", "Tech Stack", "Platform"]]
+                for project in projects:
+                    # Truncate description and scope
+                    desc = project[2][:100] + "..." if len(project[2]) > 100 else project[2]
+                    scope = project[3][:100] + "..." if len(project[3]) > 100 else project[3]
+                    
+                    table_data.append([
+                        project[0],  # project_name
+                        project[1],  # owner
+                        desc,        # description (truncated)
+                        scope,       # scope (truncated)
+                        project[4],  # target_users
+                        project[5],  # tech_stack
+                        project[6]   # platform
+                    ])
+                
+                # Create the table
+                table = Table(table_data, repeatRows=1)
+                
+                # Add style to the table
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 12),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                ]))
+                
+                elements.append(table)
+                
+                # Build PDF
+                doc.build(elements)
+                success_count += 1
+            except Exception as e:
+                messagebox.showwarning("Warning", f"Failed to export projects to PDF: {e}")
+            
+            # Export requirements
+            requirements_file = os.path.join(directory, "requirements_export.pdf")
+            try:
+                # Get requirements data
+                cur.execute("""
+                    SELECT p.project_name, r.requirement_name, r.requirement_type, r.status, r.description
+                    FROM requirements r
+                    JOIN projects p ON r.project_id = p.id
+                    ORDER BY p.project_name, r.requirement_name
+                """)
+                requirements = cur.fetchall()
+                
+                # Create PDF
+                doc = SimpleDocTemplate(requirements_file, pagesize=letter)
+                styles = getSampleStyleSheet()
+                elements = []
+                
+                # Add title
+                title = Paragraph("Project Management System - Requirements Report", styles['Title'])
+                elements.append(title)
+                elements.append(Spacer(1, 20))
+                
+                # Add date
+                date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                date_paragraph = Paragraph(f"Generated on: {date_str}", styles['Normal'])
+                elements.append(date_paragraph)
+                elements.append(Spacer(1, 20))
+                
+                # Create table data
+                table_data = [["Project", "Requirement Name", "Type", "Status", "Description"]]
+                for req in requirements:
+                    # Truncate description
+                    desc = req[4][:100] + "..." if len(req[4]) > 100 else req[4]
+                    
+                    table_data.append([
+                        req[0],  # project_name
+                        req[1],  # requirement_name
+                        req[2],  # requirement_type
+                        req[3],  # status
+                        desc     # description (truncated)
+                    ])
+                
+                # Create the table
+                table = Table(table_data, repeatRows=1)
+                
+                # Add style to the table
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 12),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                ]))
+                
+                elements.append(table)
+                
+                # Build PDF
+                doc.build(elements)
+                success_count += 1
+            except Exception as e:
+                messagebox.showwarning("Warning", f"Failed to export requirements to PDF: {e}")
+            
+            # Export effort tracking
+            effort_file = os.path.join(directory, "effort_export.pdf")
+            cur.execute("""
+                SELECT p.project_name, r.requirement_name, e.date, 
+                       e.requirements_analysis, e.designing, e.coding, 
+                       e.testing, e.project_management
+                FROM effort_tracking e
+                JOIN requirements r ON e.requirement_id = r.id
+                JOIN projects p ON r.project_id = p.id
+                ORDER BY p.project_name, r.requirement_name, e.date
+            """)
+            effort = cur.fetchall()
+            with open(effort_file, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(["Project", "Requirement", "Date", "Requirements Analysis", 
+                                "Designing", "Coding", "Testing", "Project Management"])
+                writer.writerows(effort)
+                
+            cur.close()
+            conn.close()
+            
+            self.status_var.set(f"All data exported successfully to {directory}")
+            messagebox.showinfo("Success", f"All data exported successfully to {directory}!")
+        except Exception as e:
+            self.status_var.set(f"Error exporting data: {e}")
+            messagebox.showerror("Error", f"Failed to export all data: {e} ({success_count} files were exported successfully)")
+    
+    # Original CSV export methods
     def export_projects_csv(self):
         # Get file path from user
         file_path = filedialog.asksaveasfilename(
@@ -1329,6 +1916,21 @@ class ExportsTab:
                 writer.writerow(["Project", "Requirement", "Date", "Requirements Analysis", 
                                 "Designing", "Coding", "Testing", "Project Management"])
                 writer.writerows(effort)
+            success_count += 1
+            
+            # Export risks
+            risks_file = os.path.join(directory, "risks_export.csv")
+            cur.execute("""
+                SELECT p.project_name, r.name, r.description, r.risk_status
+                FROM risks r
+                JOIN projects p ON r.project_id = p.id
+                ORDER BY p.project_name, r.name
+            """)
+            risks = cur.fetchall()
+            with open(risks_file, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(["Project", "Risk Name", "Description", "Status"])
+                writer.writerows(risks)
             success_count += 1
             
             cur.close()
