@@ -18,11 +18,22 @@ try:
 except ImportError:
     REPORTLAB_AVAILABLE = False
 
+# Import custom styles if available
+try:
+    import styles
+    import style_integration
+    STYLES_AVAILABLE = True
+    print("Custom styles loaded successfully!")
+except ImportError:
+    STYLES_AVAILABLE = False
+    print("Custom styles not found. Using default styling.")
+
 # PostgreSQL connection configuration
 DB_NAME = "project_management"
-DB_USER = "your_username"
-DB_PASSWORD = "your_password"
+DB_USER = "postgres"
+DB_PASSWORD = "postgres"
 DB_HOST = "localhost"
+
 
 # === USER AUTHENTICATION ===
 
@@ -315,15 +326,28 @@ class LoginWindow:
 # Function to establish connection to PostgreSQL database
 def connect_db():
     return psycopg2.connect(
-        dbname="project_management",
-        user="postgres",
-        password="postgres",
-        host="localhost"
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        host=DB_HOST
     )
 
 
-# === PROJECTS TAB ===
 
+class ProjectsTab:
+    def __init__(self, parent):
+        self.parent = parent
+        self.frame = ttk.Frame(self.parent)
+        self.setup_ui()
+
+    def setup_ui(self):
+
+        # Title
+        title_label = ttk.Label(self.frame, text="Effort Tracking & Monitoring", font=("Arial", 12, "bold"))
+        title_label.grid(row=0, column=0, columnspan=3, padx=20, pady=(20, 15), sticky='nw')
+
+
+# === PROJECTS TAB ===
 
 # Save a new project to the database
 def save_project(data):
@@ -377,27 +401,30 @@ class TeamMembersTab:
 
     def setup_ui(self):
         # Create UI elements to select project and display team members
+   
+        title_label = ttk.Label(self.frame, text="Team Members", font=("Arial", 12, "bold"))
+        title_label.grid(row=0, column=0, columnspan=3, padx=20, pady=(20, 15), sticky='nw')
 
         # Dropdown to select project
-        ttk.Label(self.frame, text="Select Project:").grid(row=0, column=0, padx=10, pady=10, sticky='w')
+        ttk.Label(self.frame, text="Select Project:").grid(row=1, column=0, padx=20, pady=10, sticky='w')
         self.project_combo = ttk.Combobox(self.frame, width=40, state="readonly")
-        self.project_combo.grid(row=0, column=1, padx=10, pady=10, sticky='w')
+        self.project_combo.grid(row=1, column=1, padx=10, pady=5, sticky='w')
         self.project_combo.bind("<<ComboboxSelected>>", self.load_team_members)
 
         # Treeview to display team member details
         self.tree = ttk.Treeview(self.frame, columns=("Name", "Role", "Responsibilities", "Skill"), show='headings')
         for col in ("Name", "Role", "Responsibilities", "Skill"):
             self.tree.heading(col, text=col)
-            self.tree.column(col, width=120)
-        self.tree.grid(row=1, column=0, columnspan=3, padx=10, pady=10, sticky='nsew')
+            self.tree.column(col, width=245)
+        self.tree.grid(row=2, column=0, columnspan=3, padx=20, pady=5, sticky='nsew')
 
         # Allow treeview expansion
-        self.frame.grid_rowconfigure(1, weight=1)
+        self.frame.grid_rowconfigure(2, weight=1)
         self.frame.grid_columnconfigure(2, weight=1)
 
         # Buttons to add, edit, and delete team members
         btn_frame = ttk.Frame(self.frame)
-        btn_frame.grid(row=2, column=0, columnspan=3, sticky='e', padx=10, pady=10)
+        btn_frame.grid(row=3, column=0, columnspan=3, sticky='e', padx=10, pady=10)
 
         ttk.Button(btn_frame, text="Add Member", command=self.add_member).pack(side="left", padx=5)
         ttk.Button(btn_frame, text="Edit Member", command=self.edit_member).pack(side="left", padx=5)
@@ -587,7 +614,7 @@ class RisksTab:
     def setup_risk_list_ui(self):
         # Title 
         title_label = ttk.Label(self.risks_list_tab, text="Risk Management", font=("Arial", 12, "bold"))
-        title_label.grid(row=0, column=0, columnspan=3, padx=10, pady=(10, 20), sticky='w')
+        title_label.grid(row=0, column=0, columnspan=3, padx=10, pady=(20, 10), sticky='w')
 
         # Dropdown to select the project
         ttk.Label(self.risks_list_tab, text="Select Project:").grid(row=1, column=0, padx=10, pady=10, sticky='w')
@@ -1374,25 +1401,30 @@ class RequirementsTab:
         self.setup_ui()
 
     def setup_ui(self):
+
+        # Title
+        title_label = ttk.Label(self.frame, text="Requirements", font=("Arial", 12, "bold"))
+        title_label.grid(row=0, column=0, columnspan=3, padx=20, pady=(20, 15), sticky='nw')
+
         # Project selector dropdown
-        ttk.Label(self.frame, text="Select Project:").grid(row=0, column=0, padx=10, pady=10, sticky='w')
+        ttk.Label(self.frame, text="Select Project:").grid(row=1, column=0, padx=20, pady=10, sticky='w')
         self.project_combo = ttk.Combobox(self.frame, width=40, state="readonly")
-        self.project_combo.grid(row=0, column=1, padx=10, pady=10, sticky='w')
+        self.project_combo.grid(row=1, column=1, padx=20, pady=10, sticky='w')
         self.project_combo.bind("<<ComboboxSelected>>", self.load_requirements)
 
         # Functional Requirements Treeview
-        ttk.Label(self.frame, text="Functional Requirements:").grid(row=1, column=0, columnspan=3, sticky='w', padx=10)
+        ttk.Label(self.frame, text="Functional Requirements:").grid(row=2, column=0, columnspan=3, sticky='w', padx=20)
         self.func_tree = ttk.Treeview(self.frame, columns=("Name/ID", "Status", "Description"), show='headings')
         for col in self.func_tree["columns"]:
             self.func_tree.heading(col, text=col)
-        self.func_tree.grid(row=2, column=0, columnspan=3, padx=10, pady=5, sticky="nsew")
+        self.func_tree.grid(row=3, column=0, columnspan=3, padx=20, pady=5, sticky="nsew")
 
         # Non-Functional Requirements Treeview
-        ttk.Label(self.frame, text="Non-Functional Requirements:").grid(row=3, column=0, columnspan=3, sticky='w', padx=10)
+        ttk.Label(self.frame, text="Non-Functional Requirements:").grid(row=4, column=0, columnspan=3, sticky='w', padx=20)
         self.nonfunc_tree = ttk.Treeview(self.frame, columns=("Name/ID", "Status", "Description"), show='headings')
         for col in self.nonfunc_tree["columns"]:
             self.nonfunc_tree.heading(col, text=col)
-        self.nonfunc_tree.grid(row=4, column=0, columnspan=3, padx=10, pady=5, sticky="nsew")
+        self.nonfunc_tree.grid(row=5, column=0, columnspan=3, padx=20, pady=5, sticky="nsew")
 
         # Allow the treeviews to expand with the window
         self.frame.grid_rowconfigure(2, weight=1)
@@ -1401,7 +1433,7 @@ class RequirementsTab:
 
         # Buttons for requirement operations
         btn_frame = ttk.Frame(self.frame)
-        btn_frame.grid(row=5, column=0, columnspan=3, sticky='e', padx=10, pady=10) 
+        btn_frame.grid(row=6, column=0, columnspan=3, sticky='e', padx=10, pady=10) 
         ttk.Button(btn_frame, text="Add Requirement", command=self.add_requirement).pack(side="left", padx=5)
         ttk.Button(btn_frame, text="Edit Requirement", command=self.edit_requirement).pack(side="left", padx=5)
         ttk.Button(btn_frame, text="Delete Requirement", command=self.delete_requirement).pack(side="left", padx=5)
@@ -1546,36 +1578,41 @@ class EffortTrackingTab:
         self.setup_ui()
 
     def setup_ui(self):
+
+        # Title
+        title_label = ttk.Label(self.frame, text="Effort Tracking & Monitoring", font=("Arial", 12, "bold"))
+        title_label.grid(row=0, column=0, columnspan=3, padx=20, pady=(20, 15), sticky='nw')
+
         # Project selection 
-        ttk.Label(self.frame, text="Select Project:").grid(row=0, column=0, padx=10, pady=10, sticky='e')
+        ttk.Label(self.frame, text="Select Project:").grid(row=1, column=0, padx=30, pady=5, sticky='e')
         self.project_combo = ttk.Combobox(self.frame, width=40, state="readonly")
-        self.project_combo.grid(row=0, column=1, padx=10, pady=10, sticky='w')
+        self.project_combo.grid(row=1, column=1, padx=30, pady=5, sticky='w')
         self.project_combo.bind("<<ComboboxSelected>>", self.load_requirements)
         
         # Requirement selection 
-        ttk.Label(self.frame, text="Select Requirement:").grid(row=1, column=0, padx=10, pady=5, sticky='e')
+        ttk.Label(self.frame, text="Select Requirement:").grid(row=2, column=0, padx=30, pady=5, sticky='e')
         self.requirement_combo = ttk.Combobox(self.frame, width=40, state="readonly")
-        self.requirement_combo.grid(row=1, column=1, padx=10, pady=5, sticky='w')
+        self.requirement_combo.grid(row=2, column=1, padx=30, pady=5, sticky='w')
         self.requirement_combo.bind("<<ComboboxSelected>>", lambda e: self.load_effort_entries())
 
         # Date entry 
-        ttk.Label(self.frame, text="Date:").grid(row=2, column=0, padx=10, pady=5, sticky='e')
+        ttk.Label(self.frame, text="Date:").grid(row=3, column=0, padx=30, pady=5, sticky='e')
         self.date_entry = ttk.Entry(self.frame, width=12)
-        self.date_entry.grid(row=2, column=1, padx=10, pady=5, sticky='w')
+        self.date_entry.grid(row=3, column=1, padx=30, pady=5, sticky='w')
         self.date_entry.insert(0, datetime.today().strftime('%Y-%m-%d'))
 
         # Effort category input fields 
         self.entries = {}
         categories = ["Requirements Analysis", "Designing", "Coding", "Testing", "Project Management"]
-        for i, cat in enumerate(categories, start=3):
-            ttk.Label(self.frame, text=cat + " Hours:").grid(row=i, column=0, padx=10, pady=5, sticky='e')
+        for i, cat in enumerate(categories, start=4):
+            ttk.Label(self.frame, text=cat + " Hours:").grid(row=i, column=0, padx=30, pady=5, sticky='e')
             entry = ttk.Entry(self.frame, width=12)
-            entry.grid(row=i, column=1, padx=10, pady=5, sticky='w')
+            entry.grid(row=i, column=1, padx=30, pady=5, sticky='w')
             self.entries[cat] = entry
 
         # Action buttons 
         btn_frame = ttk.Frame(self.frame)
-        btn_frame.grid(row=8, column=0, columnspan=2, padx=10, pady=10, sticky="w")
+        btn_frame.grid(row=8, column=0, columnspan=2, padx=20, pady=10, sticky="w")
         ttk.Button(btn_frame, text="Save Entry", command=self.save_effort).pack(side="left", padx=5)
         ttk.Button(btn_frame, text="Delete Selected Entry", command=self.delete_selected_entry).pack(side="left", padx=5)
         ttk.Button(btn_frame, text="View Total Hours", command=self.view_totals).pack(side="left", padx=5)
@@ -1587,7 +1624,7 @@ class EffortTrackingTab:
         for col in ["Date"] + categories:
             self.tree.heading(col, text=col)
             self.tree.column(col, width=120)
-        self.tree.grid(row=9, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+        self.tree.grid(row=9, column=0, columnspan=2, padx=20, pady=10, sticky="nsew")
 
         # Allow table to expand with window
         self.frame.grid_rowconfigure(9, weight=1)
@@ -1798,12 +1835,12 @@ class ExportsTab:
     
     def setup_ui(self):
         # Title label
-        title_label = ttk.Label(self.frame, text="Export Project Data", font=("Arial", 14, "bold"))
-        title_label.grid(row=0, column=0, columnspan=2, padx=20, pady=20)
+        title_label = ttk.Label(self.frame, text="Exports", font=("Arial", 12, "bold"))
+        title_label.grid(row=0, column=0, columnspan=2, padx=20, pady=20, sticky="nw")
         
         # Description label
         desc_label = ttk.Label(self.frame, text="Select data to export in CSV or PDF format.")
-        desc_label.grid(row=1, column=0, columnspan=2, padx=20, pady=5, sticky="w")
+        desc_label.grid(row=1, column=0, columnspan=2, padx=20, pady=1, sticky="w")
         
         # Export Projects section
         projects_frame = ttk.LabelFrame(self.frame, text="Projects")
@@ -2663,6 +2700,43 @@ class ProjectManagementApp:
             self.user_profile_tab = ttk.Frame(self.notebook)
             self.notebook.add(self.user_profile_tab, text="My Profile")
             self.setup_user_profile_tab()
+        
+        # Add tab change event handler to preserve content
+        self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
+        
+        # Dictionary to track if a tab has been visited
+        self.tab_visited = {i: False for i in range(self.notebook.index('end'))}
+        # Mark first tab as visited
+        self.tab_visited[0] = True
+    
+    def on_tab_changed(self, event):
+        """Handle tab changes and ensure content is preserved"""
+        current_tab = self.notebook.index(self.notebook.select())
+        
+        # If this is the first visit to this tab, mark it as visited
+        if not self.tab_visited.get(current_tab, False):
+            self.tab_visited[current_tab] = True
+            
+            # Force a refresh of the tab content based on which tab it is
+            if current_tab == 1:  # Team tab
+                if hasattr(self.team_tab, 'project_combo') and self.team_tab.project_combo.get():
+                    self.team_tab.load_team_members()
+            elif current_tab == 2:  # Risks tab
+                if hasattr(self.risks_tab, 'project_combo') and self.risks_tab.project_combo.get():
+                    self.risks_tab.load_risks()
+            elif current_tab == 3:  # Requirements tab
+                if hasattr(self.requirements_tab, 'project_combo') and self.requirements_tab.project_combo.get():
+                    self.requirements_tab.load_requirements()
+            elif current_tab == 4:  # Effort Tracking tab
+                if hasattr(self.effort_tab, 'project_combo') and self.effort_tab.project_combo.get():
+                    if hasattr(self.effort_tab, 'req_combo') and self.effort_tab.req_combo.get():
+                        self.effort_tab.load_effort_entries()
+        
+        # For specific tabs that need extra handling on every visit
+        if current_tab == 2 and hasattr(self.risks_tab, 'risk_notebook'):  # Risks tab with internal notebook
+            selected_risk_tab = self.risks_tab.risk_notebook.index(self.risks_tab.risk_notebook.select())
+            if selected_risk_tab == 1:  # Matrix tab
+                self.risks_tab.sync_project_dropdowns()
     
     def setup_user_profile_tab(self):
         """Set up the user profile tab"""
@@ -2955,33 +3029,75 @@ class ProjectManagementApp:
 
 # Entry Point 
 if __name__ == "__main__":
-    root = tk.Tk() # Create main window
-    
-    def on_login_success(user_id, username, role):
-        # Create new window for the main application
-        app_window = tk.Toplevel()
-        app_window.title(f"Project Management System - Logged in as {username} ({role})")
-        app_window.geometry("1024x768")
-        app_window.protocol("WM_DELETE_WINDOW", root.destroy)  # Close the whole app when the main window is closed
+    try:
+        print("Starting Project Management System...")
+        print(f"Database settings: {DB_NAME}@{DB_HOST} (user: {DB_USER})")
         
-        # Store user info
-        global current_user
-        current_user = {
-            "id": user_id,
-            "username": username,
-            "role": role
-        }
+        # Test database connection
+        try:
+            print("Testing database connection...")
+            conn = connect_db()
+            print("Database connection successful!")
+            conn.close()
+        except Exception as e:
+            print(f"ERROR: Database connection failed: {e}")
+            print("Please make sure the PostgreSQL database is running and accessible.")
+            print("You can run setup.bat to set up the database.")
+            input("Press Enter to continue anyway (the application might not work properly)...")
         
-        # Launch app
-        app = ProjectManagementApp(app_window)
+        root = tk.Tk() # Create main window
         
-    # Show login window
-    login_window = LoginWindow(root, on_login_success)
-    
-    # Use this flag for demonstration/testing to skip the login screen
-    # Set SKIP_LOGIN to True to automatically skip the login
-    SKIP_LOGIN = False
-    if SKIP_LOGIN:
-        login_window.skip_login()
-    
-    root.mainloop() # Run main loop
+        # Apply styles if available
+        if 'STYLES_AVAILABLE' in globals() and STYLES_AVAILABLE:
+            print("Applying custom styles...")
+            styles.apply_styles(root)
+        
+        def on_login_success(user_id, username, role):
+            # Create new window for the main application
+            app_window = tk.Toplevel()
+            app_window.title(f"Project Management System - Logged in as {username} ({role})")
+            app_window.geometry("1024x768")
+            app_window.protocol("WM_DELETE_WINDOW", root.destroy)  # Close the whole app when the main window is closed
+            
+            # Store user info
+            global current_user
+            current_user = {
+                "id": user_id,
+                "username": username,
+                "role": role
+            }
+            
+            # Launch app
+            app = ProjectManagementApp(app_window)
+            
+            # Apply styles to main app if available
+            if 'STYLES_AVAILABLE' in globals() and STYLES_AVAILABLE:
+                try:
+                    style_integration.style_main_app(app)
+                except Exception as e:
+                    print(f"Warning: Error applying styles to main app: {e}")
+        
+        # Show login window
+        login_window = LoginWindow(root, on_login_success)
+        
+        # Apply styles to login window if available
+        if 'STYLES_AVAILABLE' in globals() and STYLES_AVAILABLE:
+            try:
+                style_integration.style_login_window(login_window)
+            except Exception as e:
+                print(f"Warning: Error applying styles to login window: {e}")
+        
+        # Use this flag for demonstration/testing to skip the login screen
+        # Set SKIP_LOGIN to True to automatically skip the login
+        SKIP_LOGIN = False  # Don't skip login - show the login screen
+        if SKIP_LOGIN:
+            print("Debug mode: Skipping login screen")
+            login_window.skip_login()
+        
+        print("Application initialized. Starting main loop...")
+        root.mainloop() # Run main loop
+    except Exception as e:
+        print(f"CRITICAL ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        input("Press Enter to exit...")
