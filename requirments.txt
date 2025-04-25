@@ -1,0 +1,5 @@
+psycopg2-binary==2.9.5
+tkcalendar==1.6.1
+# reportlab is optional - used only for PDF exports
+# If you have trouble installing reportlab, you can skip it
+# The application will still work without PDF export capability 

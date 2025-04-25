@@ -18,10 +18,20 @@ try:
 except ImportError:
     REPORTLAB_AVAILABLE = False
 
+# Import custom styles if available
+try:
+    import styles
+    import style_integration
+    STYLES_AVAILABLE = True
+    print("Custom styles loaded successfully!")
+except ImportError:
+    STYLES_AVAILABLE = False
+    print("Custom styles not found. Using default styling.")
+
 # PostgreSQL connection configuration
 DB_NAME = "project_management"
-DB_USER = "your_username"
-DB_PASSWORD = "your_password"
+DB_USER = "postgres"
+DB_PASSWORD = "Baseball1023"
 DB_HOST = "localhost"
 
 # === USER AUTHENTICATION ===
@@ -315,10 +325,10 @@ class LoginWindow:
 # Function to establish connection to PostgreSQL database
 def connect_db():
     return psycopg2.connect(
-        dbname="project_management",
-        user="postgres",
-        password="postgres",
-        host="localhost"
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        host=DB_HOST
     )
 
 
@@ -2663,6 +2673,43 @@ class ProjectManagementApp:
             self.user_profile_tab = ttk.Frame(self.notebook)
             self.notebook.add(self.user_profile_tab, text="My Profile")
             self.setup_user_profile_tab()
+        
+        # Add tab change event handler to preserve content
+        self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
+        
+        # Dictionary to track if a tab has been visited
+        self.tab_visited = {i: False for i in range(self.notebook.index('end'))}
+        # Mark first tab as visited
+        self.tab_visited[0] = True
+    
+    def on_tab_changed(self, event):
+        """Handle tab changes and ensure content is preserved"""
+        current_tab = self.notebook.index(self.notebook.select())
+        
+        # If this is the first visit to this tab, mark it as visited
+        if not self.tab_visited.get(current_tab, False):
+            self.tab_visited[current_tab] = True
+            
+            # Force a refresh of the tab content based on which tab it is
+            if current_tab == 1:  # Team tab
+                if hasattr(self.team_tab, 'project_combo') and self.team_tab.project_combo.get():
+                    self.team_tab.load_team_members()
+            elif current_tab == 2:  # Risks tab
+                if hasattr(self.risks_tab, 'project_combo') and self.risks_tab.project_combo.get():
+                    self.risks_tab.load_risks()
+            elif current_tab == 3:  # Requirements tab
+                if hasattr(self.requirements_tab, 'project_combo') and self.requirements_tab.project_combo.get():
+                    self.requirements_tab.load_requirements()
+            elif current_tab == 4:  # Effort Tracking tab
+                if hasattr(self.effort_tab, 'project_combo') and self.effort_tab.project_combo.get():
+                    if hasattr(self.effort_tab, 'req_combo') and self.effort_tab.req_combo.get():
+                        self.effort_tab.load_effort_entries()
+        
+        # For specific tabs that need extra handling on every visit
+        if current_tab == 2 and hasattr(self.risks_tab, 'risk_notebook'):  # Risks tab with internal notebook
+            selected_risk_tab = self.risks_tab.risk_notebook.index(self.risks_tab.risk_notebook.select())
+            if selected_risk_tab == 1:  # Matrix tab
+                self.risks_tab.sync_project_dropdowns()
     
     def setup_user_profile_tab(self):
         """Set up the user profile tab"""
@@ -2955,33 +3002,75 @@ class ProjectManagementApp:
 
 # Entry Point 
 if __name__ == "__main__":
-    root = tk.Tk() # Create main window
-    
-    def on_login_success(user_id, username, role):
-        # Create new window for the main application
-        app_window = tk.Toplevel()
-        app_window.title(f"Project Management System - Logged in as {username} ({role})")
-        app_window.geometry("1024x768")
-        app_window.protocol("WM_DELETE_WINDOW", root.destroy)  # Close the whole app when the main window is closed
+    try:
+        print("Starting Project Management System...")
+        print(f"Database settings: {DB_NAME}@{DB_HOST} (user: {DB_USER})")
         
-        # Store user info
-        global current_user
-        current_user = {
-            "id": user_id,
-            "username": username,
-            "role": role
-        }
+        # Test database connection
+        try:
+            print("Testing database connection...")
+            conn = connect_db()
+            print("Database connection successful!")
+            conn.close()
+        except Exception as e:
+            print(f"ERROR: Database connection failed: {e}")
+            print("Please make sure the PostgreSQL database is running and accessible.")
+            print("You can run setup.bat to set up the database.")
+            input("Press Enter to continue anyway (the application might not work properly)...")
         
-        # Launch app
-        app = ProjectManagementApp(app_window)
+        root = tk.Tk() # Create main window
         
-    # Show login window
-    login_window = LoginWindow(root, on_login_success)
-    
-    # Use this flag for demonstration/testing to skip the login screen
-    # Set SKIP_LOGIN to True to automatically skip the login
-    SKIP_LOGIN = False
-    if SKIP_LOGIN:
-        login_window.skip_login()
-    
-    root.mainloop() # Run main loop
+        # Apply styles if available
+        if 'STYLES_AVAILABLE' in globals() and STYLES_AVAILABLE:
+            print("Applying custom styles...")
+            styles.apply_styles(root)
+        
+        def on_login_success(user_id, username, role):
+            # Create new window for the main application
+            app_window = tk.Toplevel()
+            app_window.title(f"Project Management System - Logged in as {username} ({role})")
+            app_window.geometry("1024x768")
+            app_window.protocol("WM_DELETE_WINDOW", root.destroy)  # Close the whole app when the main window is closed
+            
+            # Store user info
+            global current_user
+            current_user = {
+                "id": user_id,
+                "username": username,
+                "role": role
+            }
+            
+            # Launch app
+            app = ProjectManagementApp(app_window)
+            
+            # Apply styles to main app if available
+            if 'STYLES_AVAILABLE' in globals() and STYLES_AVAILABLE:
+                try:
+                    style_integration.style_main_app(app)
+                except Exception as e:
+                    print(f"Warning: Error applying styles to main app: {e}")
+        
+        # Show login window
+        login_window = LoginWindow(root, on_login_success)
+        
+        # Apply styles to login window if available
+        if 'STYLES_AVAILABLE' in globals() and STYLES_AVAILABLE:
+            try:
+                style_integration.style_login_window(login_window)
+            except Exception as e:
+                print(f"Warning: Error applying styles to login window: {e}")
+        
+        # Use this flag for demonstration/testing to skip the login screen
+        # Set SKIP_LOGIN to True to automatically skip the login
+        SKIP_LOGIN = False  # Don't skip login - show the login screen
+        if SKIP_LOGIN:
+            print("Debug mode: Skipping login screen")
+            login_window.skip_login()
+        
+        print("Application initialized. Starting main loop...")
+        root.mainloop() # Run main loop
+    except Exception as e:
+        print(f"CRITICAL ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        input("Press Enter to exit...")
