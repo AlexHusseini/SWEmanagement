@@ -121,58 +121,55 @@ class LoginWindow:
     
     def setup_register_tab(self, parent):
         """Set up the register tab"""
-        # Use a canvas with scrollbar to ensure everything fits
-        canvas = tk.Canvas(parent)
-        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
-        scroll_frame = ttk.Frame(canvas)
-
-        scroll_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-
-        canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        # Create a simple frame instead of scrolled canvas for better layout
+        reg_frame = ttk.Frame(parent)
+        reg_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
         # Instructions
-        instruction_label = ttk.Label(scroll_frame, text="Create a new account", style="Header.TLabel")
+        instruction_label = ttk.Label(reg_frame, text="Create a new account", style="Header.TLabel")
         instruction_label.pack(anchor="w", pady=(5, 10))
         
-        # Create form with compact spacing
-        form_frame = ttk.Frame(scroll_frame)
-        form_frame.pack(fill=tk.BOTH)
+        # Create form with fixed width and height
+        form_frame = ttk.Frame(reg_frame)
+        form_frame.pack(fill=tk.BOTH, expand=True)
         
         # Username
         ttk.Label(form_frame, text="Username:", style="Header.TLabel").pack(anchor="w", pady=(0, 3))
-        self.reg_username_entry = ttk.Entry(form_frame, width=40)
-        self.reg_username_entry.pack(fill=tk.X, pady=(0, 8))
+        self.reg_username_entry = ttk.Entry(form_frame, width=30)
+        self.reg_username_entry.pack(anchor="w", pady=(0, 8))
         
         # Password
         ttk.Label(form_frame, text="Password:", style="Header.TLabel").pack(anchor="w", pady=(0, 3))
-        self.reg_password_entry = ttk.Entry(form_frame, width=40, show="*")
-        self.reg_password_entry.pack(fill=tk.X, pady=(0, 3))
+        self.reg_password_entry = ttk.Entry(form_frame, width=30, show="*")
+        self.reg_password_entry.pack(anchor="w", pady=(0, 3))
         
         # Password hint
-        password_hint = ttk.Label(form_frame, text="Password must be at least 6 characters", foreground="gray", font=("Arial", 9, "italic"))
+        password_hint = ttk.Label(form_frame, text="Password must be at least 6 characters", 
+                                  foreground="gray", font=("Arial", 9, "italic"))
         password_hint.pack(anchor="w", pady=(0, 8))
         
         # Confirm Password
         ttk.Label(form_frame, text="Confirm Password:", style="Header.TLabel").pack(anchor="w", pady=(0, 3))
-        self.reg_confirm_entry = ttk.Entry(form_frame, width=40, show="*")
-        self.reg_confirm_entry.pack(fill=tk.X, pady=(0, 8))
+        self.reg_confirm_entry = ttk.Entry(form_frame, width=30, show="*")
+        self.reg_confirm_entry.pack(anchor="w", pady=(0, 8))
         
         # Role
         ttk.Label(form_frame, text="Role:", style="Header.TLabel").pack(anchor="w", pady=(0, 3))
-        self.reg_role_combo = ttk.Combobox(form_frame, width=38, values=["Project Manager", "Developer", "Tester"], state="readonly")
-        self.reg_role_combo.pack(fill=tk.X, pady=(0, 15))
+        
+        # Create a wider combobox for role selection
+        self.reg_role_combo = ttk.Combobox(form_frame, width=40, height = 30,
+                                         values=["Project Manager", "Developer", "Tester"], 
+                                         state="readonly")
+        self.reg_role_combo.pack(anchor="w", fill="x", pady=(0, 15), padx=(0, 20))
         self.reg_role_combo.current(0)
         
         # Register button
-        register_button = ttk.Button(form_frame, text="Create Account", command=self.register, width=20)
-        register_button.pack(pady=5)
+        button_frame = ttk.Frame(form_frame)
+        button_frame.pack(fill=tk.X, pady=5)
+        
+        register_button = ttk.Button(button_frame, text="Create Account", 
+                                    command=self.register, width=15)
+        register_button.pack(side=tk.RIGHT, padx=5, pady=5)
     
     def create_users_table(self):
         """Create users table if it doesn't exist"""
