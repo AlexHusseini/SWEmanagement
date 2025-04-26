@@ -137,27 +137,6 @@ def apply_styles(root):
                     background=COLORS['primary'],
                     relief=tk.FLAT)
     
-    # Treeview styles
-    style.configure('Treeview',
-                    background=COLORS['white'],
-                    foreground=COLORS['text_primary'],
-                    fieldbackground=COLORS['white'],
-                    font=FONTS['text_normal'])
-    
-    style.map('Treeview',
-              background=[('selected', COLORS['primary_light'])],
-              foreground=[('selected', COLORS['white'])])
-    
-    style.configure('Treeview.Heading',
-                    background=COLORS['primary'],
-                    foreground=COLORS['white'],
-                    font=FONTS['text_bold'],
-                    relief=tk.FLAT)
-    
-    style.map('Treeview.Heading',
-              background=[('active', COLORS['primary_light'])])
-    
-    # Notebook styles
     style.configure('TNotebook',
                     background=COLORS['gray_light'],
                     tabmargins=[2, 5, 2, 0])
