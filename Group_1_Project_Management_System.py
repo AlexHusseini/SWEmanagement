@@ -34,7 +34,6 @@ DB_USER = "postgres"
 DB_PASSWORD = "postgres"
 DB_HOST = "localhost"
 
-
 # === USER AUTHENTICATION ===
 
 class LoginWindow:
@@ -326,25 +325,11 @@ class LoginWindow:
 # Function to establish connection to PostgreSQL database
 def connect_db():
     return psycopg2.connect(
-        dbname=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        host=DB_HOST
+        dbname="project_management",
+        user="postgres",
+        password="postgres",
+        host="localhost"
     )
-
-
-
-class ProjectsTab:
-    def __init__(self, parent):
-        self.parent = parent
-        self.frame = ttk.Frame(self.parent)
-        self.setup_ui()
-
-    def setup_ui(self):
-
-        # Title
-        title_label = ttk.Label(self.frame, text="Effort Tracking & Monitoring", font=("Arial", 12, "bold"))
-        title_label.grid(row=0, column=0, columnspan=3, padx=20, pady=(20, 15), sticky='nw')
 
 
 # === PROJECTS TAB ===
@@ -1612,7 +1597,7 @@ class EffortTrackingTab:
 
         # Action buttons 
         btn_frame = ttk.Frame(self.frame)
-        btn_frame.grid(row=8, column=0, columnspan=2, padx=20, pady=10, sticky="w")
+        btn_frame.grid(row=9, column=0, columnspan=2, padx=20, pady=5, sticky="w")
         ttk.Button(btn_frame, text="Save Entry", command=self.save_effort).pack(side="left", padx=5)
         ttk.Button(btn_frame, text="Delete Selected Entry", command=self.delete_selected_entry).pack(side="left", padx=5)
         ttk.Button(btn_frame, text="View Total Hours", command=self.view_totals).pack(side="left", padx=5)
@@ -1624,7 +1609,7 @@ class EffortTrackingTab:
         for col in ["Date"] + categories:
             self.tree.heading(col, text=col)
             self.tree.column(col, width=120)
-        self.tree.grid(row=9, column=0, columnspan=2, padx=20, pady=10, sticky="nsew")
+        self.tree.grid(row=10, column=0, columnspan=2, padx=20, pady=1, sticky="nsew")
 
         # Allow table to expand with window
         self.frame.grid_rowconfigure(9, weight=1)
