@@ -31,10 +31,8 @@ except ImportError:
 # PostgreSQL connection configuration
 DB_NAME = "project_management"
 DB_USER = "postgres"
-DB_PASSWORD = os.getenv("DB_PASSWORD", "postgres")  # Use environment variable with fallback
+DB_PASSWORD = os.getenv("DB_PASSWORD", "Your password here")  # Use environment variable with fallback
 DB_HOST = "localhost"
-
-# === USER AUTHENTICATION ===
 
 class LoginWindow:
     def __init__(self, root, on_login_success, skip_allowed=True):
@@ -60,9 +58,6 @@ class LoginWindow:
         # App title
         title_label = ttk.Label(main_frame, text="Project Management System", font=("Arial", 16, "bold"))
         title_label.pack(pady=(5, 0))  # Reduced top padding
-        
-        subtitle_label = ttk.Label(main_frame, text="User Authentication", font=("Arial", 12))
-        subtitle_label.pack(pady=(0, 10))  # Reduced bottom padding
         
         # Create tab control for login/register tabs
         tab_control = ttk.Notebook(main_frame)
